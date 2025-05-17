@@ -2,11 +2,11 @@ import React from 'react';
 import { Text, View } from 'react-native';
 import { HamburgerMenu } from '../../components/shared/HamburgerMenu';
 
-export const RecipeScreen = () => {
+export const ProfileScreen = () => {
   return (
     <View>
       <HamburgerMenu />
-      <Text>RecipeScreen</Text>
+      <Text>ProfileScreen</Text>
     </View>
   );
 };
