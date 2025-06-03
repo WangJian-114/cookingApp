@@ -23,11 +23,11 @@ const LoginScreen = () => {
 
   const handleLogin = async () => {
     // 🟡 LOGIN HARDCODEADO
-    if (email === '1@gmail.com' && password === '123') {
+    //if (email === '1@gmail.com' && password === '123') {
       navigation.navigate('Home');
-    } else {
-      Alert.alert('Error', 'Correo o contraseña incorrectos');
-    }
+    //} else {
+     // Alert.alert('Error', 'Correo o contraseña incorrectos');
+   // }
 
     // ✅ EJEMPLO DE ENVÍO AL BACKEND CON AXIOS
     /*

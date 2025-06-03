@@ -1,14 +1,16 @@
+// App.js
+import React from 'react';
+import { Provider as PaperProvider } from 'react-native-paper';
 import 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
-import React from 'react';
-import { AppNavigator } from './presentation/navigation/AppNavigator';
+import { AppNavigator } from './presentation/navigation/AppNavigator'; // tu navigator actual
 
-const CookingApp = () => {
+export default function App() {
   return (
-    <NavigationContainer>
-      <AppNavigator />
-    </NavigationContainer>
+    <PaperProvider>
+      <NavigationContainer>
+        <AppNavigator />
+      </NavigationContainer>
+    </PaperProvider>
   );
-};
-
-export default CookingApp;
+}
