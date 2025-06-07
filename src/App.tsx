@@ -2,14 +2,14 @@ import 'react-native-gesture-handler';
 
 import { NavigationContainer } from '@react-navigation/native';
 import React from 'react';
-import { BottomTabNavigator } from './presentation/navigation/BottomTabNavigator';
 import { SideMenuNavigator } from './presentation/navigation/SideMenuNavigator';
+import { MainStackNavigator } from './presentation/navigation/MainStackNavigator';
 
 const CookingApp = () => {
   return (
     <NavigationContainer>
-      <SideMenuNavigator />
-      {/* <BottomTabNavigator /> */}
+      {/* <SideMenuNavigator /> */}
+      <MainStackNavigator />
     </NavigationContainer>
   );
 };

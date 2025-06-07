@@ -1,5 +1,5 @@
 import { createStackNavigator } from '@react-navigation/stack';
-import { DetailsScreen } from '../screens/details/DetailsScreen';
+import { ProfileScreen } from '../screens/profile/ProfileScreen';
 
 export type RootStackParams = {
   Profile: undefined;
@@ -8,12 +8,12 @@ export type RootStackParams = {
 
 const Stack = createStackNavigator<RootStackParams>();
 
-export const StackNavigator = () => {
+export const ProfileStackNavigator = () => {
   return (
     <Stack.Navigator screenOptions={{
-      headerShown: false,
+      headerShown: true,
     }}>
-      <Stack.Screen name="Details" component={DetailsScreen} />
+      <Stack.Screen name="Profile" component={ProfileScreen} />
     </Stack.Navigator>
   );
 };

@@ -1,9 +1,9 @@
 import { useWindowDimensions } from 'react-native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
-import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { IonIcon } from '../components/shared/IonIcon';
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { globalColors } from '../theme/theme';
+import { ProfileStackNavigator } from './ProfileStackNavigator';
 
 
 const Drawer = createDrawerNavigator();
@@ -32,7 +32,7 @@ export const SideMenuNavigator = () => {
       <Drawer.Screen
         options={{ drawerIcon: ({color}) => (<IonIcon name="person-circle-outline" color={color} />) }}
         name="Profile"
-        component={ProfileScreen} />
+        component={ProfileStackNavigator} />
     </Drawer.Navigator>
   );
 };

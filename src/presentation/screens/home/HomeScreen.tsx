@@ -6,7 +6,7 @@ export const HomeScreen = () => {
   return (
     <View>
       <HamburgerMenu />
-      <Text>HomeScreen</Text>
+      <Text>HomeScreen12312312</Text>
     </View>
 
   );
