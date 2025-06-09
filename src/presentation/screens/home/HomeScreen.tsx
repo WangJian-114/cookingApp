@@ -9,132 +9,148 @@ import {
   Dimensions,
   Pressable,
   ImageSourcePropType,
+  Image,
 } from 'react-native';
-import { Searchbar, IconButton, Card, Title } from 'react-native-paper';
+import { Searchbar } from 'react-native-paper';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { IonIcon } from '../../components/shared/IonIcon';
-import { globalColors } from '../../theme/theme';
 
-// 1) Usa require para la imagen local
+// 1) imagen popular
 const popularImage: ImageSourcePropType = require('../../../assets/milanesacpure.png');
+
+// mocks
+type PopularRecipe = { id: string; image: ImageSourcePropType };
+const popularRecipesMock: PopularRecipe[] = [
+  { id: 'p1', image: popularImage },
+  { id: 'p2', image: popularImage },
+  { id: 'p3', image: popularImage },
+];
 
 type Recipe = {
   id: string;
   title: string;
+  description: string;
   image: ImageSourcePropType;
+  rating: number;
   isFavorite: boolean;
 };
-
-// 2) popularRecipesMock con ruta a imagen local mediante require
-const popularRecipesMock: Recipe[] = [
-  { id: '1', title: 'Tarta de Manzana', image: popularImage, isFavorite: false },
-  { id: '2', title: 'Ensalada César', image: popularImage, isFavorite: true },
-  { id: '3', title: 'Pan de Ajo', image: popularImage, isFavorite: false },
-  { id: '4', title: 'Pizza Margarita', image: popularImage, isFavorite: true },
-];
-
 const allRecipesMock: Recipe[] = [
-  { id: '10', title: 'Guiso de Lentejas', image: popularImage, isFavorite: false },
-  { id: '11', title: 'Sopa de Calabaza', image: popularImage, isFavorite: true },
-  { id: '12', title: 'Pastel de Papa', image: popularImage, isFavorite: false },
-  { id: '13', title: 'Albóndigas en Salsa', image: popularImage, isFavorite: true },
+  {
+    id: '1',
+    title: 'Guiso de Lentejas',
+    description: 'Un reconfortante guiso de lentejas con verduras frescas y especias.',
+    image: popularImage,
+    rating: 4.5,
+    isFavorite: false,
+  },
+  {
+    id: '2',
+    title: 'Sopa de Calabaza',
+    description: 'Sopa cremosa de calabaza, ideal para días fríos.',
+    image: popularImage,
+    rating: 4.2,
+    isFavorite: true,
+  },
+  {
+    id: '3',
+    title: 'Pastel de Papa',
+    description: 'Capas de papa, carne y queso, gratinado al horno.',
+    image: popularImage,
+    rating: 4.8,
+    isFavorite: false,
+  },
+  {
+    id: '4',
+    title: 'Albóndigas en Salsa',
+    description: 'Albóndigas en salsa de tomate casera, servidas con arroz.',
+    image: popularImage,
+    rating: 4.7,
+    isFavorite: true,
+  },
 ];
 
 export const HomeScreen = () => {
   const navigation = useNavigation();
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Configurar ícono de hamburguesa y header transparente
   useEffect(() => {
     navigation.setOptions({
-      headerStyle: {
-        backgroundColor: 'transparent',
-        elevation: 0,
-        shadowOpacity: 0,
-      },
+      headerStyle: { backgroundColor: 'transparent', elevation: 0, shadowOpacity: 0 },
       headerTitle: '',
       headerLeft: () => (
         <Pressable
           onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
           style={{ marginLeft: 5, marginRight: 10 }}
         >
-          <IonIcon name="menu-outline" color={globalColors.primary} />
+          <IonIcon name="menu-outline" color="#E9A300" />
         </Pressable>
       ),
     });
   }, [navigation]);
 
-  // renderPopularItem usa source={item.image}, no uri
-  const renderPopularItem = ({ item }: { item: Recipe }) => (
-    <Card style={styles.popularCardOnlyImage}>
-      <Card.Cover source={item.image} style={styles.popularImageOnly} />
-    </Card>
+  // popular
+  const renderPopularItem = ({ item }: { item: PopularRecipe }) => (
+    <View style={styles.popularCard}>
+      <Image source={item.image} style={styles.popularImage} />
+    </View>
   );
 
-  // Render vertical de todas las recetas (sin cambios en imagen)
+  // all recipes
   const renderAllItem = ({ item }: { item: Recipe }) => (
-    <Card style={styles.allCard}>
-      <View style={styles.allCardContent}>
-        <Card.Cover source={item.image} style={styles.allImage} />
-        <View style={styles.allTextWrapper}>
-          <Title style={styles.allTitle} numberOfLines={1}>
-            {item.title}
-          </Title>
-        </View>
-        <IconButton
-          icon={item.isFavorite ? 'heart' : 'heart-outline'}
-          size={20}
-          style={styles.allFavoriteIcon}
-          onPress={() => {
-            // Lógica para alternar favorito
-          }}
-        />
+    <View style={styles.recipeCard}>
+      <Image source={item.image} style={styles.recipeImage} />
+      <View style={styles.ratingBadge}>
+        <IonIcon name="star" size={12} color="#FFD700" />
+        <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
       </View>
-    </Card>
+      <View style={styles.recipeInfo}>
+        <Text style={styles.recipeTitle}>{item.title}</Text>
+        <Text style={styles.recipeDesc} numberOfLines={3}>
+          {item.description}
+        </Text>
+      </View>
+      <Pressable style={styles.favoriteButton}>
+        <IonIcon
+          name={item.isFavorite ? 'heart' : 'heart-outline'}
+          size={20}
+          color="#fff"
+        />
+      </Pressable>
+    </View>
   );
 
   return (
     <LinearGradient
-      colors={[
-                'rgba(233, 163, 0, 0.9)',
-                'rgba(251, 192, 45, 0.8)',
-                'rgba(255, 255, 255, 0.6)',
-              ]}
+      colors={['rgba(233,163,0,0.9)', 'rgba(251,192,45,0.8)', 'rgba(255,255,255,0.6)']}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
-       style={[styles.gradientContainer]}
+      style={styles.gradientContainer}
     >
       <SafeAreaView style={styles.container}>
-        {/* 1. BARRA DE BÚSQUEDA + BOTÓN DE FILTROS */}
+        {/* barra búsqueda */}
         <View style={styles.searchContainer}>
           <LinearGradient
-            colors={['#E86900', '#FFD740']}           // gradiente horizontal naranja→amarillo
+            colors={['#FFFFFF', '#FFD740']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.searchGradient}
           >
             <Searchbar
               placeholder="Buscar receta"
-              onChangeText={(text) => setSearchQuery(text)}
+              onChangeText={setSearchQuery}
               value={searchQuery}
               style={styles.searchbar}
               inputStyle={styles.searchbarInput}
-              iconColor="#333"
-              placeholderTextColor="#555"
+              icon={({ size, color }) => <IonIcon name="search-outline" size={size} color={color} />}
             />
           </LinearGradient>
-          <Pressable
-            style={styles.filterButton}
-            onPress={() => {
-              // Abrir modal o pantalla de filtros
-            }}
-          >
-            <IonIcon name="filter-outline" size={24} color="#333" />
+          <Pressable style={styles.filterButton}>
+            <IonIcon name="options-outline" size={24} color="#333" />
           </Pressable>
         </View>
 
-        {/* 2. SECCIÓN “RECETAS MÁS POPULARES” (solo imágenes) */}
+        {/* populares */}
         <Text style={styles.sectionTitle}>RECETAS MÁS POPULARES</Text>
         <FlatList
           data={popularRecipesMock}
@@ -145,12 +161,14 @@ export const HomeScreen = () => {
           contentContainerStyle={styles.popularList}
         />
 
-        {/* 3. SECCIÓN “TODAS LAS RECETAS” */}
+        {/* todas */}
         <Text style={styles.sectionTitle}>TODAS LAS RECETAS</Text>
         <FlatList
           data={allRecipesMock}
           keyExtractor={(item) => item.id}
           renderItem={renderAllItem}
+          numColumns={2}
+          columnWrapperStyle={styles.allColumnWrapper}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.allList}
         />
@@ -160,120 +178,90 @@ export const HomeScreen = () => {
 };
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = width * 0.3;
+// cálculo de anchos
+const POP_CARD_WIDTH = (width - 32 - 12 * 2) / 3;    // 16px padding + 12px entre cards
+const ALL_CARD_WIDTH = (width - 32 - 8) / 2;         // 16px padding + 8px entre columnas
 
 const styles = StyleSheet.create({
-  // Contenedor del degradado ocupa toda la pantalla
-  gradientContainer: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 0, // Márgenes laterales en cada sección
-  },
+  gradientContainer: { flex: 1 },
+  container: { flex: 1 },
 
-  /* ---- Contenedor de búsqueda y filtro ---- */
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  searchGradient: {
-    flex: 1,
-    borderRadius: 20,
-    opacity: 0.5,
-  },
-  searchbar: {
-    backgroundColor: 'transparent',
-    borderRadius: 20,
-    elevation: 0,
-  },
-  searchbarInput: {
-    fontSize: 16,
-    color: '#212121',
-  },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+  searchGradient: { flex: 1, borderRadius: 20, opacity: 0.7 },
+  searchbar: { backgroundColor: 'transparent', elevation: 0 },
+  searchbarInput: { fontSize: 16 },
+
   filterButton: {
     marginLeft: 8,
-    width: 50,
-    height: 50,
+    width: 40,
+    height: 40,
     borderRadius: 12,
     backgroundColor: '#E9A300',
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
 
-  /* ---- Título de sección ---- */
   sectionTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginHorizontal: 16,
     marginTop: 12,
+    marginBottom: 8,
     color: '#333',
-    paddingHorizontal: 16,
   },
 
-  /* ---- FlatList horizontal de populares (solo imagen) ---- */
-  popularList: {
-    paddingLeft: 16,
-    paddingVertical: 8,
-  },
-  popularCardOnlyImage: {
-    width: CARD_WIDTH,
-    height: CARD_WIDTH * 0.6,
+  /* populares más pequeñas */
+  popularList: { paddingLeft: 16, paddingBottom: 12 },
+  popularCard: {
+    width: POP_CARD_WIDTH,
+    height: POP_CARD_WIDTH * 0.6,  // misma proporción, pero más chico
     marginRight: 12,
     borderRadius: 10,
     overflow: 'hidden',
-    backgroundColor: 'transparent',
-    elevation: 0,
   },
-  popularImageOnly: {
-    width: '100%',
-    height: '100%',
-  },
+  popularImage: { width: '100%', height: '100%' },
 
-  /* ---- FlatList vertical de todas las recetas ---- */
-  allList: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-  },
-  allCard: {
-    marginBottom: 12,
+  /* grid 2×N */
+  allList: { paddingHorizontal: 16, paddingBottom: 16 },
+  allColumnWrapper: { justifyContent: 'space-between', marginBottom: 12 },
+
+  recipeCard: {
+    width: ALL_CARD_WIDTH,
+    backgroundColor: '#FFF9E6',
     borderRadius: 10,
     overflow: 'hidden',
-    backgroundColor: '#FFF9E6',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    position: 'relative',
   },
-  allCardContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  allImage: {
-    width: 80,
-    height: 80,
-  },
-  allTextWrapper: {
-    flex: 1,
-    paddingHorizontal: 8,
-    justifyContent: 'center',
-  },
-  allTitle: {
-    fontSize: 15,
-  },
-  allFavoriteIcon: {
+  recipeImage: { width: '100%', height: ALL_CARD_WIDTH * 0.6 },
+
+  /* badge de rating con fondo negro 40% */
+  ratingBadge: {
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.4)',  // <-- fondo negro 40%
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingText: { marginLeft: 2, color: '#fff', fontSize: 10 },
+
+  recipeInfo: { padding: 8 },
+  recipeTitle: {
+    fontFamily: 'sans-serif-medium',
+    fontSize: 14,
+    marginBottom: 4,
+  },
+  recipeDesc: { fontSize: 12, color: '#333', lineHeight: 16 },
+
+  /* corazón amarillo */
+  favoriteButton: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(255,187,47,0.4)',
+    borderRadius: 12,
+    padding: 4,
   },
 });
