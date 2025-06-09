@@ -38,22 +38,22 @@ export const BottomTabNavigator = () => {
     >
       <Tab.Screen
         name="Home"
-        options={{ tabBarIcon: ({ color }) => (<IonIcon name="home-outline" color={color} size={25} />) }}
+        options={{ tabBarIcon: ({ color }) => (<IonIcon name="home-outline" color={color} size={30} />) }}
         component={HomeScreen}
       />
       <Tab.Screen
         name="Favorite"
-        options={{ tabBarIcon: ({ color }) => (<IonIcon name="heart-outline" color={color} size={25} />) }}
+        options={{ tabBarIcon: ({ color }) => (<IonIcon name="heart-outline" color={color} size={32} />) }}
         component={FavoriteScreen}
       />
       <Tab.Screen
         name="Recipe"
-        options={{ tabBarIcon: ({ color }) => (<IonIcon name="book-outline" color={color} size={25} />) }}
+        options={{ tabBarIcon: ({ color }) => (<IonIcon name="book-outline" color={color} size={30} />) }}
         component={RecipeScreen}
       />
       <Tab.Screen
         name="Notification"
-        options={{ tabBarIcon: ({ color }) => (<IonIcon name="notifications-outline" color={color} size={25} />) }}
+        options={{ tabBarIcon: ({ color }) => (<IonIcon name="notifications-outline" color={color} size={30} />) }}
         component={NotificationScreen}
       />
     </Tab.Navigator>
