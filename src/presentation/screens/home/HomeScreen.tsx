@@ -1,5 +1,5 @@
 // src/screens/home/HomeScreen.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   SafeAreaView,
   View,
@@ -8,8 +8,9 @@ import {
   Text,
   Dimensions,
   Pressable,
-  ImageSourcePropType,
   Image,
+  ImageSourcePropType,
+  RefreshControl,
 } from 'react-native';
 import { Searchbar } from 'react-native-paper';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
@@ -73,6 +74,7 @@ const allRecipesMock: Recipe[] = [
 export const HomeScreen = () => {
   const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     navigation.setOptions({
@@ -89,14 +91,26 @@ export const HomeScreen = () => {
     });
   }, [navigation]);
 
-  // popular
+  // Pull-to-refresh simulado
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    // aquí iría tu fetch real...
+    setTimeout(() => setRefreshing(false), 1000);
+  }, []);
+
+  // Render para sección “Populares”
   const renderPopularItem = ({ item }: { item: PopularRecipe }) => (
     <View style={styles.popularCard}>
       <Image source={item.image} style={styles.popularImage} />
     </View>
   );
 
-  // all recipes
+  // Lista filtrada por búsqueda
+  const filteredRecipes = allRecipesMock.filter(r =>
+    r.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Render para sección “Todas las recetas”
   const renderAllItem = ({ item }: { item: Recipe }) => (
     <View style={styles.recipeCard}>
       <Image source={item.image} style={styles.recipeImage} />
@@ -128,7 +142,7 @@ export const HomeScreen = () => {
       style={styles.gradientContainer}
     >
       <SafeAreaView style={styles.container}>
-        {/* barra búsqueda */}
+        {/* Barra de búsqueda + filtros */}
         <View style={styles.searchContainer}>
           <LinearGradient
             colors={['#FFFFFF', '#FFD740']}
@@ -142,7 +156,9 @@ export const HomeScreen = () => {
               value={searchQuery}
               style={styles.searchbar}
               inputStyle={styles.searchbarInput}
-              icon={({ size, color }) => <IonIcon name="search-outline" size={size} color={color} />}
+              icon={({ size, color }) => (
+                <IonIcon name="search-outline" size={size} color={color} />
+              )}
             />
           </LinearGradient>
           <Pressable style={styles.filterButton}>
@@ -150,27 +166,30 @@ export const HomeScreen = () => {
           </Pressable>
         </View>
 
-        {/* populares */}
+        {/* Sección “Recetas más populares” */}
         <Text style={styles.sectionTitle}>RECETAS MÁS POPULARES</Text>
         <FlatList
           data={popularRecipesMock}
           horizontal
-          keyExtractor={(item) => item.id}
+          keyExtractor={item => item.id}
           renderItem={renderPopularItem}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.popularList}
         />
 
-        {/* todas */}
+        {/* Sección “Todas las recetas” con RefreshControl y searchQuery */}
         <Text style={styles.sectionTitle}>TODAS LAS RECETAS</Text>
         <FlatList
-          data={allRecipesMock}
-          keyExtractor={(item) => item.id}
+          data={filteredRecipes}
+          keyExtractor={item => item.id}
           renderItem={renderAllItem}
           numColumns={2}
           columnWrapperStyle={styles.allColumnWrapper}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.allList}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
         />
       </SafeAreaView>
     </LinearGradient>
@@ -178,9 +197,8 @@ export const HomeScreen = () => {
 };
 
 const { width } = Dimensions.get('window');
-// cálculo de anchos
-const POP_CARD_WIDTH = (width - 32 - 12 * 2) / 3;    // 16px padding + 12px entre cards
-const ALL_CARD_WIDTH = (width - 32 - 8) / 2;         // 16px padding + 8px entre columnas
+const POP_CARD_WIDTH = (width - 32 - 12 * 2) / 3;
+const ALL_CARD_WIDTH = (width - 32 - 8) / 2;
 
 const styles = StyleSheet.create({
   gradientContainer: { flex: 1 },
@@ -210,18 +228,16 @@ const styles = StyleSheet.create({
     color: '#333',
   },
 
-  /* populares más pequeñas */
   popularList: { paddingLeft: 16, paddingBottom: 12 },
   popularCard: {
     width: POP_CARD_WIDTH,
-    height: POP_CARD_WIDTH * 0.6,  // misma proporción, pero más chico
+    height: POP_CARD_WIDTH * 0.6,
     marginRight: 12,
     borderRadius: 10,
     overflow: 'hidden',
   },
   popularImage: { width: '100%', height: '100%' },
 
-  /* grid 2×N */
   allList: { paddingHorizontal: 16, paddingBottom: 16 },
   allColumnWrapper: { justifyContent: 'space-between', marginBottom: 12 },
 
@@ -234,12 +250,11 @@ const styles = StyleSheet.create({
   },
   recipeImage: { width: '100%', height: ALL_CARD_WIDTH * 0.6 },
 
-  /* badge de rating con fondo negro 40% */
   ratingBadge: {
     position: 'absolute',
     top: 8,
     right: 8,
-    backgroundColor: 'rgba(0,0,0,0.4)',  // <-- fondo negro 40%
+    backgroundColor: 'rgba(0,0,0,0.4)',
     borderRadius: 8,
     paddingHorizontal: 4,
     flexDirection: 'row',
@@ -255,7 +270,6 @@ const styles = StyleSheet.create({
   },
   recipeDesc: { fontSize: 12, color: '#333', lineHeight: 16 },
 
-  /* corazón amarillo */
   favoriteButton: {
     position: 'absolute',
     bottom: 8,
