@@ -11,9 +11,8 @@ import {
   TouchableWithoutFeedback,
   Alert,
 } from 'react-native';
-import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { useNavigation } from '@react-navigation/native';
-// import axios from 'axios'; // descomentá si usás axios
+import { IonIcon } from '../../components/shared/IonIcon';
 
 const LoginScreen = () => {
   const navigation = useNavigation();
@@ -21,31 +20,9 @@ const LoginScreen = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleLogin = async () => {
-    // 🟡 LOGIN HARDCODEADO
-    //if (email === '1@gmail.com' && password === '123') {
-      navigation.navigate('Home');
-    //} else {
-     // Alert.alert('Error', 'Correo o contraseña incorrectos');
-   // }
-
-    // ✅ EJEMPLO DE ENVÍO AL BACKEND CON AXIOS
-    /*
-    try {
-      const response = await axios.post('https://tu-api.com/login', {
-        email,
-        password,
-      });
-
-      if (response.data.success) {
-        navigation.navigate('Home');
-      } else {
-        Alert.alert('Error', 'Credenciales inválidas');
-      }
-    } catch (error) {
-      Alert.alert('Error de conexión', 'No se pudo contactar al servidor');
-    }
-    */
+  const handleLogin = () => {
+    // 🔒 Autenticación hardcodeada
+    navigation.navigate('Home');
   };
 
   return (
@@ -59,20 +36,24 @@ const LoginScreen = () => {
         />
 
         {/* Email */}
-        <TextInput
-          style={styles.input}
-          placeholder="Correo electronico"
-          placeholderTextColor="#888"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-        />
-
-        {/* Password con ícono FontAwesome */}
-        <View style={styles.passwordWrapper}>
+        <View style={styles.inputWrapper}>
+          <IonIcon name="mail-outline" size={20} color="#888" style={styles.inputIcon} />
           <TextInput
-            style={styles.passwordInput}
-            placeholder="********"
+            style={styles.input}
+            placeholder="Correo electrónico"
+            placeholderTextColor="#888"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+          />
+        </View>
+
+        {/* Password */}
+        <View style={styles.inputWrapper}>
+          <IonIcon name="lock-closed-outline" size={20} color="#888" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Contraseña"
             placeholderTextColor="#888"
             secureTextEntry={!showPassword}
             value={password}
@@ -80,23 +61,23 @@ const LoginScreen = () => {
           />
           <TouchableOpacity
             onPress={() => setShowPassword(!showPassword)}
-            style={styles.icon}
+            style={styles.eyeIcon}
           >
-            <FontAwesome
-              name={showPassword ? 'eye-slash' : 'eye'}
-              size={22}
-              color="#000"
+            <IonIcon
+              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+              size={20}
+              color="#888"
             />
           </TouchableOpacity>
         </View>
 
-        {/* Login button */}
+        {/* Botón de Login */}
         <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
           <Text style={styles.loginText}>Iniciar Sesión</Text>
         </TouchableOpacity>
 
-        {/* Forgot password */}
-        <TouchableOpacity>
+        {/* Olvidé contraseña */}
+        <TouchableOpacity onPress={() => Alert.alert('Recuperar contraseña', 'Función pendiente')}>
           <Text style={styles.forgotText}>Olvidé mi contraseña</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -119,33 +100,28 @@ const styles = StyleSheet.create({
     height: 200,
     marginBottom: 30,
   },
-  input: {
-    width: '100%',
-    backgroundColor: '#fff6e9',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 15,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: '#ffcd47',
-  },
-  passwordWrapper: {
+  inputWrapper: {
     flexDirection: 'row',
+    alignItems: 'center',
     width: '100%',
     backgroundColor: '#fff6e9',
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#ffcd47',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  passwordInput: {
-    flex: 1,
-    padding: 12,
-    fontSize: 16,
-  },
-  icon: {
+    marginBottom: 15,
     paddingHorizontal: 12,
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#000',
+  },
+  eyeIcon: {
+    paddingLeft: 8,
   },
   loginButton: {
     backgroundColor: '#ffcd47',
