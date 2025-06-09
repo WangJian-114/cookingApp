@@ -27,6 +27,13 @@ export const BottomTabNavigator = () => {
           borderTopWidth: 0,
           elevation: 0,
         },
+         tabBarShowLabel: false,
+         tabBarActiveTintColor: '#ffbb2f',
+         tabBarInactiveTintColor: '#888',
+         tabBarStyle: {
+                   borderTopWidth: 0,
+                   elevation: 0,
+                 },
       }}
     >
       <Tab.Screen
