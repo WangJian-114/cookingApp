@@ -1,38 +1,52 @@
+// src/navigation/SideMenuNavigator.tsx
+import React from 'react';
 import { useWindowDimensions } from 'react-native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
+import { BottomTabNavigator } from './BottomTabNavigator';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { IonIcon } from '../components/shared/IonIcon';
-import { BottomTabNavigator } from './BottomTabNavigator';
 import { globalColors } from '../theme/theme';
-
 
 const Drawer = createDrawerNavigator();
 
 export const SideMenuNavigator = () => {
-  const dimensions = useWindowDimensions();
+  const { width } = useWindowDimensions();
 
   return (
     <Drawer.Navigator
       screenOptions={{
+        // Despliega permanente en pantallas anchas
         headerShown: false,
-        drawerType: dimensions.width >= 758 ? 'permanent' : 'slide',
+        drawerType: width >= 758 ? 'permanent' : 'slide',
         drawerActiveBackgroundColor: globalColors.primary,
         drawerActiveTintColor: 'white',
         drawerInactiveTintColor: globalColors.primary,
-        drawerItemStyle: {
-          borderRadius: 100,
-          paddingHorizontal: 20,
-        },
+        drawerItemStyle: { borderRadius: 100, paddingHorizontal: 20 },
       }}
     >
+      {/* Este screen envuelve TODO tu Bottom Tabs */}
       <Drawer.Screen
-        options={{ drawerIcon: ({color}) => (<IonIcon name="home-outline" color={color} />) }}
-        name="Home"
-        component={BottomTabNavigator} />
+        name="MainTabs"
+        component={BottomTabNavigator}
+        options={{
+          title: 'Home',
+          drawerIcon: ({ color, size }) => (
+            <IonIcon name="home-outline" color={color} size={size ?? 28} />
+          ),
+        }}
+      />
+
+      {/* Este screen va SIN bottom tabs */}
       <Drawer.Screen
-        options={{ drawerIcon: ({color}) => (<IonIcon name="person-circle-outline" color={color} />) }}
         name="Profile"
-        component={ProfileScreen} />
+        component={ProfileScreen}
+        options={{
+          title: 'Profile',
+          drawerIcon: ({ color, size }) => (
+            <IonIcon name="person-circle-outline" color={color} size={size ?? 28} />
+          ),
+        }}
+      />
     </Drawer.Navigator>
   );
 };
