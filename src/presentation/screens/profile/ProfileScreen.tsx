@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { IonIcon } from '../../components/shared/IonIcon';
+import { Header } from '../../components/shared/header/Header';
 
 const { width } = Dimensions.get('window');
 
@@ -40,42 +41,45 @@ export const ProfileScreen = () => {
       style={styles.gradient}
     >
       <SafeAreaView style={styles.container}>
+        <Header />
         {/* Avatar y nombre de usuario */}
-        <View style={styles.avatarSection}>
-          <IonIcon name="person-circle-outline" size={80} color="#333" />
-          <Text style={styles.username}>User 1</Text>
-        </View>
-
-        {/* Campos de perfil */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Nombre y Apellido</Text>
-          <View style={styles.valueWrapper}>
-            <Text style={styles.value}>Tiago Maselli</Text>
+        <View style={styles.mainContainer}>
+          <View style={styles.avatarSection}>
+            <IonIcon name="person-circle-outline" size={80} color="#333" />
+            <Text style={styles.username}>User 1</Text>
           </View>
-        </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Nombre de Usuario</Text>
-          <View style={styles.valueWrapper}>
-            <Text style={styles.value}>User 1</Text>
+          {/* Campos de perfil */}
+          <View style={styles.field}>
+            <Text style={styles.label}>Nombre y Apellido</Text>
+            <View style={styles.valueWrapper}>
+              <Text style={styles.value}>Tiago Maselli</Text>
+            </View>
           </View>
-        </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Email</Text>
-          <View style={styles.valueWrapper}>
-            <Text style={styles.value}>xxxxx@gmail.com</Text>
+          <View style={styles.field}>
+            <Text style={styles.label}>Nombre de Usuario</Text>
+            <View style={styles.valueWrapper}>
+              <Text style={styles.value}>User 1</Text>
+            </View>
           </View>
-        </View>
 
-        {/* Botones */}
-        <View style={styles.buttonsContainer}>
-          <Pressable style={styles.button}>
-            <Text style={styles.buttonText}>Reset Password</Text>
-          </Pressable>
-          <Pressable style={styles.button}>
-            <Text style={styles.buttonText}>Cerrar Cuenta</Text>
-          </Pressable>
+          <View style={styles.field}>
+            <Text style={styles.label}>Email</Text>
+            <View style={styles.valueWrapper}>
+              <Text style={styles.value}>xxxxx@gmail.com</Text>
+            </View>
+          </View>
+
+          {/* Botones */}
+          <View style={styles.buttonsContainer}>
+            <Pressable style={styles.button}>
+              <Text style={styles.buttonText}>Reset Password</Text>
+            </Pressable>
+            <Pressable style={styles.button}>
+              <Text style={styles.buttonText}>Cerrar Cuenta</Text>
+            </Pressable>
+          </View>
         </View>
       </SafeAreaView>
     </LinearGradient>
@@ -88,6 +92,8 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+  },
+  mainContainer: {
     paddingHorizontal: 16,
   },
   avatarSection: {
