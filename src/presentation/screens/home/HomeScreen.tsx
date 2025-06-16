@@ -156,7 +156,7 @@ export const HomeScreen = () => {
               )}
             />
           </LinearGradient>
-          <Pressable style={styles.filterButton}>
+          <Pressable style={styles.filterButton}  onPress={() => navigation.navigate('filter')}>
             <IonIcon name="options-outline" size={24} color="#333" />
           </Pressable>
         </View>

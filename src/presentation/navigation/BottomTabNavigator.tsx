@@ -2,11 +2,11 @@
 // src/navigation/BottomTabNavigator.tsx
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { HomeScreen } from '../screens/home/HomeScreen';
 import { FavoriteScreen } from '../screens/favorite/FavoriteScreen';
 import { RecipeScreen } from '../screens/recipe/RecipeScreen';
 import { NotificationScreen } from '../screens/notification/NotificationScreen';
 import { IonIcon } from '../components/shared/IonIcon';
+import { HomeStackNavigator } from './HomeStackNavigator';
 
 const Tab = createBottomTabNavigator();
 
@@ -23,7 +23,7 @@ export const BottomTabNavigator = () => {
     >
       <Tab.Screen
         name="Home"
-        component={HomeScreen}
+        component={HomeStackNavigator}
         options={{
           tabBarIcon: ({ color, size }) => (
             <IonIcon name="home-outline" color={color} size={size ?? 30} />
