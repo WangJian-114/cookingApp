@@ -1,7 +1,6 @@
 // src/screens/favorite/FavoriteScreen.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  SafeAreaView,
   View,
   StyleSheet,
   FlatList,
@@ -12,11 +11,12 @@ import {
   ImageSourcePropType,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar } from 'react-native-paper';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { IonIcon } from '../../components/shared/IonIcon';
-import { globalColors } from '../../theme/theme';
+import { Header } from '../../components/shared/header/Header';
 
 const sampleImage: ImageSourcePropType = require('../../../assets/milanesacpure.png');
 
@@ -46,17 +46,7 @@ export const FavoriteScreen = () => {
 
   useEffect(() => {
     navigation.setOptions({
-      headerStyle:     { backgroundColor: 'transparent', elevation: 0, shadowOpacity: 0 },
-      headerTitle:     '',
-      headerTintColor: globalColors.primary,
-      headerLeft: () => (
-        <Pressable
-          onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
-          style={{ marginLeft: 5, marginRight: 10 }}
-        >
-          <IonIcon name="menu-outline" color="#E9A300"/>
-        </Pressable>
-      ),
+      headerShown: false,
     });
   }, [navigation]);
 
@@ -102,6 +92,7 @@ export const FavoriteScreen = () => {
       style={styles.gradientContainer}
     >
       <SafeAreaView style={styles.container}>
+        <Header />
         {/* ── Search + Filter ── */}
         <View style={styles.searchContainer}>
           <LinearGradient

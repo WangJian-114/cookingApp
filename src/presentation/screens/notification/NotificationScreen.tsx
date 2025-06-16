@@ -1,7 +1,6 @@
 // src/screens/notification/NotificationScreen.tsx
 import React, { useState, useCallback } from 'react';
 import {
-  SafeAreaView,
   View,
   StyleSheet,
   FlatList,
@@ -11,8 +10,10 @@ import {
   Modal,
   Pressable,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import LinearGradient from 'react-native-linear-gradient';
 import { IonIcon } from '../../components/shared/IonIcon';
+import { Header } from '../../components/shared/header/Header';
 
 type Notification = {
   id: string;
@@ -61,6 +62,7 @@ export const NotificationScreen = () => {
     >
       <SafeAreaView style={styles.container}>
         {/* Listado */}
+        <Header />
         <FlatList
           data={notifications}
           keyExtractor={item => item.id}

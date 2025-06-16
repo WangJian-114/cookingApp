@@ -11,13 +11,18 @@ export const HamburgerMenu = () => {
 
   useEffect(() => {
     navigation.setOptions({
+    headerStyle: {
+      backgroundColor: 'rgba(251,192,45,0.8)', // El mismo color marrón o naranja
+    },
     headerLeft: () => (
-      <Pressable
-        onPress={() => navigation.dispatch( DrawerActions.toggleDrawer )}
-        style={{ marginLeft: 5, marginRight: 10}}>
-        <IonIcon name="menu-outline" color={globalColors
-          .primary} />
-      </Pressable>
+      <>
+        <Pressable
+          onPress={() => navigation.dispatch( DrawerActions.toggleDrawer )}
+          style={{ marginLeft: 5, marginRight: 10}}>
+          <IonIcon name="menu-outline" color={globalColors
+            .dark} />
+        </Pressable>
+      </>
      ),
     });
     });

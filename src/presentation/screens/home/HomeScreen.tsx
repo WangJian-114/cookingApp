@@ -1,7 +1,6 @@
 // src/screens/home/HomeScreen.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  SafeAreaView,
   View,
   StyleSheet,
   FlatList,
@@ -12,11 +11,12 @@ import {
   ImageSourcePropType,
   RefreshControl,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar } from 'react-native-paper';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { IonIcon } from '../../components/shared/IonIcon';
-import { HamburgerMenu } from '../../components/shared/HamburgerMenu';
+import { Header } from '../../components/shared/header/Header';
 
 // 1) imagen popular
 const popularImage: ImageSourcePropType = require('../../../assets/milanesacpure.png');
@@ -78,18 +78,10 @@ export const HomeScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
+  // Inyectamos el icono de hamburguesa en el header de cada tab
   useEffect(() => {
     navigation.setOptions({
-      headerStyle: { backgroundColor: 'transparent', elevation: 0, shadowOpacity: 0 },
-      headerTitle: '',
-      headerLeft: () => (
-        <Pressable
-          onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
-          style={{ marginLeft: 5, marginRight: 10 }}
-        >
-          <IonIcon name="menu-outline" color="#E9A300" />
-        </Pressable>
-      ),
+      headerShown: false,
     });
   }, [navigation]);
 
@@ -144,10 +136,7 @@ export const HomeScreen = () => {
       style={styles.gradientContainer}
     >
       <SafeAreaView style={styles.container}>
-        <View>
-            <HamburgerMenu />
-            <Text>HomeScreen12312312</Text>
-        </View>
+        <Header />
         {/* Barra de búsqueda + filtros */}
         <View style={styles.searchContainer}>
           <LinearGradient

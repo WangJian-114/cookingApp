@@ -9,6 +9,7 @@ export const globalColors = {
   danger: '#e71d36',
   dark: '#22223b',
   background: '#fff',
+  brown: '#E2A400',
 };
 
 export const globalStyles = StyleSheet.create({

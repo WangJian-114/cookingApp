@@ -1,35 +1,16 @@
+/* eslint-disable react/no-unstable-nested-components */
 // src/navigation/BottomTabNavigator.tsx
-import React, { useLayoutEffect } from 'react';
+import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { HomeScreen } from '../screens/home/HomeScreen';
 import { FavoriteScreen } from '../screens/favorite/FavoriteScreen';
 import { RecipeScreen } from '../screens/recipe/RecipeScreen';
 import { NotificationScreen } from '../screens/notification/NotificationScreen';
-import { useNavigation } from '@react-navigation/native';
-import { Pressable } from 'react-native';
 import { IonIcon } from '../components/shared/IonIcon';
-import { globalColors } from '../theme/theme';
 
 const Tab = createBottomTabNavigator();
 
 export const BottomTabNavigator = () => {
-  const navigation = useNavigation();
-
-  // Inyectamos el icono de hamburguesa en el header de cada tab
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerLeft: () => (
-        <Pressable
-          onPress={() => navigation.toggleDrawer()}
-          style={{ marginLeft: 16 }}
-        >
-          <IonIcon name="menu-outline" size={28} color={globalColors.primary} />
-        </Pressable>
-      ),
-      headerStyle: { elevation: 0, shadowOpacity: 0, backgroundColor: 'transparent' },
-    });
-  }, [navigation]);
-
   return (
     <Tab.Navigator
       screenOptions={{
@@ -53,6 +34,7 @@ export const BottomTabNavigator = () => {
         name="Favorite"
         component={FavoriteScreen}
         options={{
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <IonIcon name="heart-outline" color={color} size={size ?? 30} />
           ),
@@ -62,6 +44,7 @@ export const BottomTabNavigator = () => {
         name="Recipe"
         component={RecipeScreen}
         options={{
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <IonIcon name="book-outline" color={color} size={size ?? 30} />
           ),
@@ -71,6 +54,7 @@ export const BottomTabNavigator = () => {
         name="Notification"
         component={NotificationScreen}
         options={{
+          headerShown: false,
           tabBarIcon: ({ color, size }) => (
             <IonIcon name="notifications-outline" color={color} size={size ?? 30} />
           ),

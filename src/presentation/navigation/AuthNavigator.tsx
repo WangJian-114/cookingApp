@@ -1,14 +1,44 @@
+import {
+  createStackNavigator,
+} from '@react-navigation/stack';
 
-import React from 'react';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import LoginScreen from '../screens/login/LoginScreen';
-import HomeScreen from '../screens/home/HomeScreen';
+import {LoginScreen} from '../screens/auth/LoginScreen';
+import { ForgotPasswordScreen } from '../screens/auth/ForgotPasswordScreen';
+import { VerifyCodeScreen } from '../screens/auth/VerifyCodeScreen';
+import { ResetPasswordScreen } from '../screens/auth/ResetPasswordScreen';
 
-const Stack = createNativeStackNavigator();
+export type RootStackParams = {
+  LoginScreen: undefined;
+  ForgotPasswordScreen: undefined;
+  VerifyCodeScreen: undefined;
+  ResetPasswordScreen:  undefined;
+};
 
-export const AuthNavigator = () => (
-  <Stack.Navigator screenOptions={{ headerShown: false }}>
-    <Stack.Screen name="Login" component={LoginScreen} />
-    <Stack.Screen name="Home" component={HomeScreen} />
-  </Stack.Navigator>
-);
+const Stack = createStackNavigator<RootStackParams>();
+
+export const AuthNavigator = () => {
+  return (
+    <Stack.Navigator
+      initialRouteName="ResetPasswordScreen"
+      screenOptions={{
+        headerShown: false,
+      }}>
+      <Stack.Screen
+        name="LoginScreen"
+        component={LoginScreen}
+      />
+      <Stack.Screen
+        name="ForgotPasswordScreen"
+        component={ForgotPasswordScreen}
+      />
+      <Stack.Screen
+        name="VerifyCodeScreen"
+        component={VerifyCodeScreen}
+      />
+      <Stack.Screen
+        name="ResetPasswordScreen"
+        component={ResetPasswordScreen}
+      />
+    </Stack.Navigator>
+  );
+};
