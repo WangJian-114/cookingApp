@@ -1,19 +1,32 @@
+// src/navigation/RecipesStackNavigator.tsx
+import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import { DetailsScreen } from '../screens/details/DetailsScreen';
+import { RecipesListScreen } from '../screens/recipe/RecipeListScreen';
+import { RecipeEditScreen } from '../screens/recipe/RecipeEditScreen';
 
-export type RootStackParams = {
-  Profile: undefined;
-  Details: { recipeId: number };
-}
+export type RecipesStackParamList = {
+  RecipesList: undefined;
+  RecipeEdit: { recipeId: string };
+};
 
-const Stack = createStackNavigator<RootStackParams>();
+const Stack = createStackNavigator<RecipesStackParamList>();
 
-export const StackNavigator = () => {
+export const RecipesStackNavigator = () => {
   return (
-    <Stack.Navigator screenOptions={{
-      headerShown: false,
-    }}>
-      <Stack.Screen name="Details" component={DetailsScreen} />
+    <Stack.Navigator
+      initialRouteName="RecipesList"
+      screenOptions={{
+        headerShown: false,
+      }}
+    >
+      <Stack.Screen
+        name="RecipesList"
+        component={RecipesListScreen}
+      />
+      <Stack.Screen
+        name="RecipeEdit"
+        component={RecipeEditScreen}
+      />
     </Stack.Navigator>
   );
 };
