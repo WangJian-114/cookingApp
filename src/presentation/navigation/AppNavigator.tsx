@@ -4,6 +4,7 @@ import { useWindowDimensions } from 'react-native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
+import { RecipesStackNavigator } from './RecipesStackNavigator';
 import { IonIcon } from '../components/shared/IonIcon';
 import { globalColors } from '../theme/theme';
 
@@ -47,6 +48,17 @@ export const AppNavigator = () => {
           ),
         }}
       />
+      <Drawer.Screen
+        name="Recipe"
+        component={RecipesStackNavigator}
+        options={{
+          title: 'Mis Recetas',
+          drawerIcon: ({ color, size }) => (
+            <IonIcon name="restaurant-outline" color={color} size={size ?? 28} />
+          ),
+        }}
+      />
+
     </Drawer.Navigator>
   );
 };
