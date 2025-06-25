@@ -19,7 +19,6 @@ import LinearGradient from 'react-native-linear-gradient';
 import { IonIcon } from '../../components/shared/IonIcon';
 import { Header } from '../../components/shared/header/Header';
 
-// Importa los tipos del navegador
 import { RecipesStackParamList } from '../../navigation/RecipesStackNavigator';
 
 const sampleImage: ImageSourcePropType = require('../../../assets/milanesacpure.png');
@@ -34,7 +33,6 @@ type Recipe = {
   category: string;
 };
 
-// Tipo para la navegación
 type RecipesListScreenNavigationProp = StackNavigationProp<
   RecipesStackParamList,
   'RecipesList'
@@ -52,7 +50,7 @@ const allRecipesMock: Recipe[] = [
 const { width } = Dimensions.get('window');
 
 export const RecipesListScreen = () => {
-  const navigation = useNavigation<RecipesListScreenNavigationProp>();
+  const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -62,26 +60,31 @@ export const RecipesListScreen = () => {
     });
   }, [navigation]);
 
-  // refrescar (simulado)
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // aquí iría el fetch real...
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
 
-  // filtro por búsqueda
+  const navigateToDetails = (recipeId: string) => {
+    navigation.navigate('DetailsScreen', { recipeId });
+  };
+
   const filtered = allRecipesMock.filter(r =>
     r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const viewRecipeDetails = (recipeId: string) => {
+    navigation.navigate('DetailsScreen', { recipeId });
+  };
+
+
   const editRecipe = (recipeId: string) => {
-      // Navegación al apartado de Receta Editar
     navigation.navigate('RecipeEdit', { recipeId });
   };
 
   const renderItem = ({ item }: { item: Recipe }) => (
-    <Pressable style={styles.recipeCard}>
+    <Pressable style={styles.recipeCard} onPress={() => viewRecipeDetails(item.id)}>
       <Image source={item.image} style={styles.recipeImage} />
 
       <View style={styles.recipeContent}>
@@ -196,7 +199,6 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
 
-  // Tarjeta de receta (layout horizontal)
   recipeCard: {
     backgroundColor: '#FFF9E6',
     borderRadius: 12,
