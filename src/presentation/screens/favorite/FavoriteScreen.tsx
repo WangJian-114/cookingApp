@@ -50,26 +50,24 @@ export const FavoriteScreen = () => {
     });
   }, [navigation]);
 
-  // refrescar (simulado)
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    // aquí iría tu fetch real...
     setTimeout(() => setRefreshing(false), 1000);
   }, []);
 
-  // solo favoritos
+  const navigateToDetails = (recipeId: string) => {
+    navigation.navigate('DetailsScreen', { recipeId });
+  };
+
   const favoriteRecipes = allRecipesMock.filter(r => r.isFavorite);
 
-  // luego filtro por búsqueda
   const filtered = favoriteRecipes.filter(r =>
     r.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const renderItem = ({ item }: { item: Recipe }) => (
-    <View style={styles.recipeCard}>
+    <Pressable style={styles.recipeCard} onPress={() => navigateToDetails(item.id)}>
       <Image source={item.image} style={styles.recipeImage} />
-
-
 
       <View style={styles.recipeInfo}>
         <Text style={styles.recipeTitle}>{item.title}</Text>
@@ -81,7 +79,7 @@ export const FavoriteScreen = () => {
       <Pressable style={styles.favoriteButton}>
         <IonIcon name="heart" size={20} color="#fff" />
       </Pressable>
-    </View>
+    </Pressable>
   );
 
   return (
@@ -93,7 +91,6 @@ export const FavoriteScreen = () => {
     >
       <SafeAreaView style={styles.container}>
         <Header />
-        {/* ── Search + Filter ── */}
         <View style={styles.searchContainer}>
           <LinearGradient
             colors={['#FFFFFF', '#FFD740']}
@@ -102,7 +99,7 @@ export const FavoriteScreen = () => {
             style={styles.searchGradient}
           >
             <Searchbar
-              placeholder="Buscar receta"
+              placeholder="Buscar en favoritos"
               onChangeText={setSearchQuery}
               value={searchQuery}
               style={styles.searchbar}
@@ -185,7 +182,6 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
 
-  // Tarjeta de receta
   recipeCard: {
     width: CARD_WIDTH,
     backgroundColor: '#FFF9E6',
@@ -204,7 +200,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  //ratingText: { marginLeft: 2, color: '#fff', fontSize: 10 },
   recipeInfo: { padding: 8 },
   recipeTitle: { fontSize: 14, marginBottom: 4 },
   recipeDesc: { fontSize: 12, color: '#333', lineHeight: 16 },
@@ -216,7 +211,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 4,
   },
-
   emptyText: {
     textAlign: 'center',
     marginTop: 32,
