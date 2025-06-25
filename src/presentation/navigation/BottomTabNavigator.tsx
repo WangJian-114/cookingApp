@@ -3,10 +3,12 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { FavoriteScreen } from '../screens/favorite/FavoriteScreen';
-import { RecipeScreen } from '../screens/recipe/RecipeScreen';
 import { NotificationScreen } from '../screens/notification/NotificationScreen';
 import { IonIcon } from '../components/shared/IonIcon';
 import { HomeStackNavigator } from './HomeStackNavigator';
+
+import { RecipesStackNavigator } from './RecipesStackNavigator';
+
 
 const Tab = createBottomTabNavigator();
 
@@ -40,9 +42,10 @@ export const BottomTabNavigator = () => {
           ),
         }}
       />
+
       <Tab.Screen
-        name="Recipe"
-        component={RecipeScreen}
+        name="Recipe" //
+        component={RecipesStackNavigator}
         options={{
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
@@ -50,6 +53,7 @@ export const BottomTabNavigator = () => {
           ),
         }}
       />
+
       <Tab.Screen
         name="Notification"
         component={NotificationScreen}

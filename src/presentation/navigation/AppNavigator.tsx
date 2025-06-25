@@ -1,22 +1,32 @@
-// src/navigation/SideMenuNavigator.tsx
+// src/navigation/AppNavigator.tsx
 import React from 'react';
 import { useWindowDimensions } from 'react-native';
 import { createDrawerNavigator } from '@react-navigation/drawer';
+import { createStackNavigator } from '@react-navigation/stack';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
 import { RecipesStackNavigator } from './RecipesStackNavigator';
+import { DetailsScreen } from '../screens/details/DetailsScreen';
 import { IonIcon } from '../components/shared/IonIcon';
 import { globalColors } from '../theme/theme';
 
+
+export type RootStackParamList = {
+  MainApp: undefined;
+  DetailsScreen: { recipeId: string };
+};
+
+const Stack = createStackNavigator<RootStackParamList>();
 const Drawer = createDrawerNavigator();
 
-export const AppNavigator = () => {
+const SideMenuNavigator = () => {
   const { width } = useWindowDimensions();
 
   return (
     <Drawer.Navigator
       screenOptions={{
-        // Despliega permanente en pantallas anchas
         headerShown: false,
         drawerType: width >= 758 ? 'permanent' : 'slide',
         drawerActiveBackgroundColor: globalColors.primary,
@@ -25,27 +35,20 @@ export const AppNavigator = () => {
         drawerItemStyle: { borderRadius: 100, paddingHorizontal: 20 },
       }}
     >
-      {/* Este screen envuelve TODO tu Bottom Tabs */}
       <Drawer.Screen
         name="MainTabs"
         component={BottomTabNavigator}
         options={{
           title: 'Home',
-          drawerIcon: ({ color, size }) => (
-            <IonIcon name="home-outline" color={color} size={size ?? 28} />
-          ),
+          drawerIcon: ({ color, size }) => <IonIcon name="home-outline" color={color} size={size ?? 28} />,
         }}
       />
-
-      {/* Este screen va SIN bottom tabs */}
       <Drawer.Screen
         name="Profile"
         component={ProfileScreen}
         options={{
           title: 'Profile',
-          drawerIcon: ({ color, size }) => (
-            <IonIcon name="person-circle-outline" color={color} size={size ?? 28} />
-          ),
+          drawerIcon: ({ color, size }) => <IonIcon name="person-circle-outline" color={color} size={size ?? 28} />,
         }}
       />
       <Drawer.Screen
@@ -53,12 +56,36 @@ export const AppNavigator = () => {
         component={RecipesStackNavigator}
         options={{
           title: 'Mis Recetas',
-          drawerIcon: ({ color, size }) => (
-            <IonIcon name="restaurant-outline" color={color} size={size ?? 28} />
-          ),
+          drawerIcon: ({ color, size }) => <IonIcon name="restaurant-outline" color={color} size={size ?? 28} />,
         }}
       />
-
     </Drawer.Navigator>
+  );
+};
+
+
+export const AppNavigator = () => {
+  return (
+    <BottomSheetModalProvider>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        <Stack.Screen
+          name="MainApp"
+          component={SideMenuNavigator}
+        />
+        <Stack.Screen
+          name="DetailsScreen"
+          component={DetailsScreen}
+          options={{
+              headerShown: false,
+              title: 'Detalle de la Receta',
+              presentation: 'modal',
+          }}
+        />
+      </Stack.Navigator>
+    </BottomSheetModalProvider>
   );
 };
