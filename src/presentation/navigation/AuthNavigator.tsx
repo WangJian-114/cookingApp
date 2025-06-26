@@ -19,7 +19,7 @@ const Stack = createStackNavigator<RootStackParams>();
 export const AuthNavigator = () => {
   return (
     <Stack.Navigator
-      initialRouteName="ResetPasswordScreen"
+      initialRouteName="LoginScreen"
       screenOptions={{
         headerShown: false,
       }}>

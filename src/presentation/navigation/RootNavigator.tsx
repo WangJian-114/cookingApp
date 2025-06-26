@@ -1,13 +1,24 @@
 // src/navigation/RootNavigator.tsx
-import React from 'react';
-import { AuthNavigator } from './AuthNavigator';
-// import { BottomTabNavigator } from './BottomTabNavigator';
-import { AppNavigator } from './AppNavigator';
+import React from 'react'
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import { AuthNavigator } from './AuthNavigator'
+import { AppNavigator } from './AppNavigator'
 
-// Simula autenticación
-// const isAuthenticated = false; // Reemplaza con tu lógica (contexto, Redux, asyncStorage...)
-const isAuthenticated = true; // Reemplaza con tu lógica (contexto, Redux, asyncStorage...)
+export type RootStackParams = {
+  Auth: undefined
+  MainApp: undefined
+}
+
+const Stack = createNativeStackNavigator<RootStackParams>()
 
 export default function RootNavigator() {
-  return isAuthenticated ? <AppNavigator /> : <AuthNavigator />;
+  return (
+    <Stack.Navigator
+      initialRouteName="Auth"
+      screenOptions={{ headerShown: false }}
+    >
+      <Stack.Screen name="Auth" component={AuthNavigator} />
+      <Stack.Screen name="MainApp" component={AppNavigator} />
+    </Stack.Navigator>
+  )
 }
