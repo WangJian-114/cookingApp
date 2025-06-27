@@ -18,11 +18,12 @@ export const authStyles = StyleSheet.create({
     marginVertical: 10,
     textAlign: 'center',
   },
-  description: {
-    textAlign: 'center',
-    fontSize: 14,
-    color: '#444',
-    marginBottom: 20,
+ description: {
+     fontSize: 14,
+     color: '#666',
+     textAlign: 'center',
+     marginBottom: 20,
+     paddingHorizontal: 10,
   },
   input: {
     width: '100%',
@@ -42,15 +43,18 @@ export const authStyles = StyleSheet.create({
   codeInput: {
     width: 50,
     height: 50,
+    borderWidth: 1,
+    borderColor: '#ddd',
+
     backgroundColor: '#e5e7eb',
     textAlign: 'center',
-    fontSize: 18,
+    fontSize: 20,
     borderRadius: 8,
   },
   button: {
     backgroundColor: '#fcd34d',
     paddingVertical: 12,
-    paddingHorizontal: 20,
+    paddingHorizontal: 40,
     borderRadius: 8,
     width: '100%',
     alignItems: 'center',
@@ -58,6 +62,7 @@ export const authStyles = StyleSheet.create({
   buttonText: {
     fontWeight: 'bold',
     color: '#000',
+    fontSize: 16,
   },
   passwordContainer: {
     width: '100%',
