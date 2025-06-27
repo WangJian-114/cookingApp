@@ -10,9 +10,10 @@ import { ResetPasswordScreen } from '../screens/auth/ResetPasswordScreen';
 export type RootStackParams = {
   LoginScreen: undefined;
   ForgotPasswordScreen: undefined;
-  VerifyCodeScreen: undefined;
-  ResetPasswordScreen:  undefined;
+  VerifyCodeScreen:  { email: string };
+  ResetPasswordScreen: { email: string; token: string };
 };
+
 
 const Stack = createStackNavigator<RootStackParams>();
 
