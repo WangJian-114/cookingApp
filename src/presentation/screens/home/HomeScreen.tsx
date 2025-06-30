@@ -1,5 +1,4 @@
-// src/presentation/screens/home/HomeScreen.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   View,
   StyleSheet,
@@ -10,85 +9,169 @@ import {
   Image,
   ImageSourcePropType,
   RefreshControl,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Searchbar } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
+  Alert,
+} from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { Searchbar } from 'react-native-paper'
+import { useNavigation } from '@react-navigation/native'
+import LinearGradient from 'react-native-linear-gradient'
 
-import LinearGradient from 'react-native-linear-gradient';
-import { IonIcon } from '../../components/shared/IonIcon';
-import { Header } from '../../components/shared/header/Header';
+import { IonIcon } from '../../components/shared/IonIcon'
+import { Header } from '../../components/shared/header/Header'
+import api from '../../../services/api'
 
+const placeholderImage = require('../../../assets/milanesacpure.png')
 
-const popularImage: ImageSourcePropType = require('../../../assets/milanesacpure.png');
-type PopularRecipe = { id: string; image: ImageSourcePropType };
-const popularRecipesMock: PopularRecipe[] = [
-    { id: 'p1', image: popularImage },
-    { id: 'p2', image: popularImage },
-    { id: 'p3', image: popularImage },
-];
-type Recipe = { id: string; title: string; description: string; image: ImageSourcePropType; rating: number; isFavorite: boolean; };
-const allRecipesMock: Recipe[] = [
-    { id: '1', title: 'Guiso de Lentejas', description: 'Un reconfortante guiso de lentejas con verduras frescas y especias.', image: popularImage, rating: 4.5, isFavorite: false },
-    { id: '2', title: 'Sopa de Calabaza', description: 'Sopa cremosa de calabaza, ideal para días fríos.', image: popularImage, rating: 4.2, isFavorite: true },
-    { id: '3', title: 'Pastel de Papa', description: 'Capas de papa, carne y queso, gratinado al horno.', image: popularImage, rating: 4.8, isFavorite: false },
-    { id: '4', title: 'Albóndigas en Salsa', description: 'Albóndigas en salsa de tomate casera, servidas con arroz.', image: popularImage, rating: 4.7, isFavorite: true },
-];
-
-
+type PopularRecipe = { id: string; image: ImageSourcePropType }
+type Recipe = {
+  id: string
+  title: string
+  description: string
+  image: ImageSourcePropType
+  rating: number
+}
 
 export const HomeScreen = () => {
-  const navigation = useNavigation();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
+  const navigation = useNavigation()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
+
+  const [popularRecipes, setPopularRecipes] = useState<PopularRecipe[]>([])
+  const [allRecipes, setAllRecipes]       = useState<Recipe[]>([])
+  const [favorites, setFavorites]         = useState<Set<string>>(new Set())
+
+  /** 1) Populares aleatorias */
+  const fetchPopular = async () => {
+    try {
+      const res = await api.get('/receta/populares')
+      const raw = res.data as Array<{ _id: string; imagen?: string | null }>
+      setPopularRecipes(
+        raw.map(r => ({
+          id: r._id,
+          image: r.imagen ? { uri: r.imagen } : placeholderImage,
+        }))
+      )
+    } catch (err) {
+      console.warn('❌ Error al cargar populares:', err)
+    }
+  }
+
+  /** 2) Todas las recetas */
+  const fetchAll = async () => {
+    try {
+      const res = await api.get('/receta/Allrecetas')
+      const raw = res.data as Array<{
+        _id: string
+        titulo: string
+        descripcion: string
+        imagen?: string | null
+        valoraciones?: Array<{ rating: number }>
+      }>
+      setAllRecipes(
+        raw.map(r => {
+          const vals = r.valoraciones ?? []
+          const avg = vals.length
+            ? vals.reduce((s, v) => s + v.rating, 0) / vals.length
+            : 0
+          return {
+            id: r._id,
+            title: r.titulo,
+            description: r.descripcion,
+            image: r.imagen ? { uri: r.imagen } : placeholderImage,
+            rating: avg,
+          }
+        })
+      )
+    } catch (err) {
+      console.warn('❌ Error al cargar recetas:', err)
+    }
+  }
+
+  /** 3) Favoritos del usuario */
+  const fetchFavorites = async () => {
+    try {
+      const res = await api.get('/favs/misFavoritos')
+      console.log('▶️ favoritos raw:', res.data)
+      // Ahora el back devuelve un array de recetas, así que usamos su _id:
+      const favIds = new Set((res.data as Array<{ _id: string }>).map(r => r._id))
+      setFavorites(favIds)
+    } catch (err) {
+      console.warn('❌ Error al cargar favoritos:', err)
+    }
+  }
+
+  /** 4) Toggle favorito */
+  const toggleFavorite = async (recipeId: string) => {
+    try {
+      if (favorites.has(recipeId)) {
+        await api.delete(`/favs/borrar/${recipeId}`)
+        favorites.delete(recipeId)
+      } else {
+        await api.post('/favs/agregar', { recetaId: recipeId })
+        favorites.add(recipeId)
+      }
+      setFavorites(new Set(favorites))
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.message || err.message)
+    }
+  }
 
   useEffect(() => {
-    navigation.setOptions({
-      headerShown: false,
-    });
-  }, [navigation]);
+    navigation.setOptions({ headerShown: false })
+    fetchPopular()
+    fetchAll()
+    fetchFavorites()
+  }, [navigation])
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  }, []);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await Promise.all([fetchPopular(), fetchAll(), fetchFavorites()])
+    setRefreshing(false)
+  }, [])
 
-  const navigateToDetails = (recipeId: string) => {
-    navigation.navigate('DetailsScreen', { recipeId });
-  };
+  const navigateToDetails = (recipeId: string) =>
+    navigation.navigate('DetailsScreen' as never, { recipeId } as never)
 
-  const renderPopularItem = ({ item }: { item: PopularRecipe }) => (
-    <Pressable style={styles.popularCard} onPress={() => navigateToDetails(item.id)}>
+  const filtered = allRecipes.filter(r =>
+    r.title.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const renderPopular = ({ item }: { item: PopularRecipe }) => (
+    <Pressable
+      style={styles.popularCard}
+      onPress={() => navigateToDetails(item.id)}
+    >
       <Image source={item.image} style={styles.popularImage} />
     </Pressable>
-  );
+  )
 
-  const filteredRecipes = allRecipesMock.filter(r =>
-    r.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const renderAllItem = ({ item }: { item: Recipe }) => (
-    <Pressable style={styles.recipeCard} onPress={() => navigateToDetails(item.id)}>
-      <Image source={item.image} style={styles.recipeImage} />
-      <View style={styles.ratingBadge}>
-        <IonIcon name="star" size={12} color="#FFD700" />
-        <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-      </View>
-      <View style={styles.recipeInfo}>
-        <Text style={styles.recipeTitle}>{item.title}</Text>
-        <Text style={styles.recipeDesc} numberOfLines={3}>
-          {item.description}
-        </Text>
-      </View>
-      <Pressable style={styles.favoriteButton}>
-        <IonIcon
-          name={item.isFavorite ? 'heart' : 'heart-outline'}
-          size={20}
-          color="#fff"
-        />
+  const renderRecipe = ({ item }: { item: Recipe }) => {
+    const isFav = favorites.has(item.id)
+    return (
+      <Pressable
+        style={styles.recipeCard}
+        onPress={() => navigateToDetails(item.id)}
+      >
+        <Image source={item.image} style={styles.recipeImage} />
+        <View style={styles.ratingBadge}>
+          <IonIcon name="star" size={12} color="#FFD700" />
+          <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+        </View>
+        <View style={styles.recipeInfo}>
+          <Text style={styles.recipeTitle}>{item.title}</Text>
+          <Text style={styles.recipeDesc} numberOfLines={3}>
+            {item.description}
+          </Text>
+        </View>
+        <Pressable
+          style={styles.favoriteButton}
+          onPress={() => toggleFavorite(item.id)}
+        >
+          <IonIcon name={isFav ? 'heart' : 'heart-outline'} size={20} color="#fff" />
+        </Pressable>
       </Pressable>
-    </Pressable>
-  );
+    )
+  }
 
   return (
     <LinearGradient
@@ -99,6 +182,8 @@ export const HomeScreen = () => {
     >
       <SafeAreaView style={styles.container}>
         <Header />
+
+        {/* Search */}
         <View style={styles.searchContainer}>
           <LinearGradient
             colors={['#FFFFFF', '#FFD740']}
@@ -112,31 +197,36 @@ export const HomeScreen = () => {
               value={searchQuery}
               style={styles.searchbar}
               inputStyle={styles.searchbarInput}
-              icon={({ size, color }) => (
-                <IonIcon name="search-outline" size={size} color={color} />
-              )}
+               icon={({ size, color }) => (
+                  <IonIcon name="search-outline" size={size} color={color} />
+                )}
+                clearIcon={({ size, color }) => (
+                  <IonIcon name="close-circle-outline" size={size} color={color} />
+                )}
             />
           </LinearGradient>
-          <Pressable style={styles.filterButton} onPress={() => navigation.navigate('filter' as never)}>
+          <Pressable style={styles.filterButton}>
             <IonIcon name="options-outline" size={24} color="#333" />
           </Pressable>
         </View>
 
+        {/* Populares */}
         <Text style={styles.sectionTitle}>RECETAS MÁS POPULARES</Text>
         <FlatList
-          data={popularRecipesMock}
+          data={popularRecipes}
           horizontal
-          keyExtractor={item => item.id}
-          renderItem={renderPopularItem}
+          keyExtractor={i => i.id}
+          renderItem={renderPopular}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.popularList}
         />
 
+        {/* Todas */}
         <Text style={styles.sectionTitle}>TODAS LAS RECETAS</Text>
         <FlatList
-          data={filteredRecipes}
-          keyExtractor={item => item.id}
-          renderItem={renderAllItem}
+          data={filtered}
+          keyExtractor={i => i.id}
+          renderItem={renderRecipe}
           numColumns={2}
           columnWrapperStyle={styles.allColumnWrapper}
           showsVerticalScrollIndicator={false}
@@ -147,33 +237,76 @@ export const HomeScreen = () => {
         />
       </SafeAreaView>
     </LinearGradient>
-  );
-};
+  )
+}
 
-const { width } = Dimensions.get('window');
-const POP_CARD_WIDTH = (width - 32 - 12 * 2) / 3;
-const ALL_CARD_WIDTH = (width - 32 - 8) / 2;
+const { width } = Dimensions.get('window')
+const POP_CARD_WIDTH = (width - 32 - 12 * 2) / 3
+const ALL_CARD_WIDTH = (width - 32 - 8) / 2
 
 const styles = StyleSheet.create({
-    gradientContainer: { flex: 1 },
-    container: { flex: 1 },
-    searchContainer: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-    searchGradient: { flex: 1, borderRadius: 20, opacity: 0.7 },
-    searchbar: { backgroundColor: 'transparent', elevation: 0 },
-    searchbarInput: { fontSize: 16 },
-    filterButton: { marginLeft: 8, width: 40, height: 40, borderRadius: 12, backgroundColor: '#E9A300', alignItems: 'center', justifyContent: 'center' },
-    sectionTitle: { fontSize: 16, fontWeight: 'bold', marginHorizontal: 16, marginTop: 12, marginBottom: 8, color: '#333' },
-    popularList: { paddingLeft: 16, paddingBottom: 12 },
-    popularCard: { width: POP_CARD_WIDTH, height: POP_CARD_WIDTH * 0.6, marginRight: 12, borderRadius: 10, overflow: 'hidden' },
-    popularImage: { width: '100%', height: '100%' },
-    allList: { paddingHorizontal: 16, paddingBottom: 16 },
-    allColumnWrapper: { justifyContent: 'space-between', marginBottom: 12 },
-    recipeCard: { width: ALL_CARD_WIDTH, backgroundColor: '#FFF9E6', borderRadius: 10, overflow: 'hidden', position: 'relative' },
-    recipeImage: { width: '100%', height: ALL_CARD_WIDTH * 0.6 },
-    ratingBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 8, paddingHorizontal: 4, flexDirection: 'row', alignItems: 'center' },
-    ratingText: { marginLeft: 2, color: '#fff', fontSize: 10 },
-    recipeInfo: { padding: 8 },
-    recipeTitle: { fontFamily: 'sans-serif-medium', fontSize: 14, marginBottom: 4 },
-    recipeDesc: { fontSize: 12, color: '#333', lineHeight: 16 },
-    favoriteButton: { position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(255,187,47,0.4)', borderRadius: 12, padding: 4 },
-});
+  gradientContainer: { flex: 1 },
+  container: { flex: 1 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+  searchGradient: { flex: 1, borderRadius: 20, opacity: 0.7 },
+  searchbar: { backgroundColor: 'transparent', elevation: 0 },
+  searchbarInput: { fontSize: 16 },
+  filterButton: {
+    marginLeft: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#E9A300',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    color: '#333',
+  },
+  popularList: { paddingLeft: 16, paddingBottom: 12 },
+  popularCard: {
+    width: POP_CARD_WIDTH,
+    height: POP_CARD_WIDTH * 0.6,
+    marginRight: 12,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  popularImage: { width: '100%', height: '100%' },
+  allList: { paddingHorizontal: 16, paddingBottom: 16 },
+  allColumnWrapper: { justifyContent: 'space-between', marginBottom: 12 },
+  recipeCard: {
+    width: ALL_CARD_WIDTH,
+    backgroundColor: '#FFF9E6',
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  recipeImage: { width: '100%', height: ALL_CARD_WIDTH * 0.6 },
+  ratingBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingText: { marginLeft: 2, color: '#fff', fontSize: 10 },
+  recipeInfo: { padding: 8 },
+  recipeTitle: { fontFamily: 'sans-serif-medium', fontSize: 14, marginBottom: 4 },
+  recipeDesc: { fontSize: 12, color: '#333', lineHeight: 16 },
+  favoriteButton: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(255,187,47,0.4)',
+    borderRadius: 12,
+    padding: 4,
+  },
+})
