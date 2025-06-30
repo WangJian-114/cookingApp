@@ -1,4 +1,5 @@
 // src/presentation/screens/home/HomeScreen.tsx
+
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -14,57 +15,97 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar } from 'react-native-paper';
 import { useNavigation } from '@react-navigation/native';
-
 import LinearGradient from 'react-native-linear-gradient';
+
 import { IonIcon } from '../../components/shared/IonIcon';
 import { Header } from '../../components/shared/header/Header';
-
+import api from '../../../services/api';
 
 const popularImage: ImageSourcePropType = require('../../../assets/milanesacpure.png');
 type PopularRecipe = { id: string; image: ImageSourcePropType };
 const popularRecipesMock: PopularRecipe[] = [
-    { id: 'p1', image: popularImage },
-    { id: 'p2', image: popularImage },
-    { id: 'p3', image: popularImage },
-];
-type Recipe = { id: string; title: string; description: string; image: ImageSourcePropType; rating: number; isFavorite: boolean; };
-const allRecipesMock: Recipe[] = [
-    { id: '1', title: 'Guiso de Lentejas', description: 'Un reconfortante guiso de lentejas con verduras frescas y especias.', image: popularImage, rating: 4.5, isFavorite: false },
-    { id: '2', title: 'Sopa de Calabaza', description: 'Sopa cremosa de calabaza, ideal para días fríos.', image: popularImage, rating: 4.2, isFavorite: true },
-    { id: '3', title: 'Pastel de Papa', description: 'Capas de papa, carne y queso, gratinado al horno.', image: popularImage, rating: 4.8, isFavorite: false },
-    { id: '4', title: 'Albóndigas en Salsa', description: 'Albóndigas en salsa de tomate casera, servidas con arroz.', image: popularImage, rating: 4.7, isFavorite: true },
+  { id: 'p1', image: popularImage },
+  { id: 'p2', image: popularImage },
+  { id: 'p3', image: popularImage },
 ];
 
+// placeholder si no hay imagen
+const placeholderImage: ImageSourcePropType = require('../../../assets/milanesacpure.png');
 
+type Recipe = {
+  id: string;
+  title: string;
+  description: string;
+  image: ImageSourcePropType;
+  rating: number;
+  isFavorite: boolean;
+};
 
 export const HomeScreen = () => {
   const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [allRecipes, setAllRecipes] = useState<Recipe[]>([]);
+
+  const fetchRecipes = async () => {
+    try {
+      // Ajusta la ruta según cómo montaste el router en backend:
+      const res = await api.get('/receta/Allrecetas');
+      console.log('▶️ recetas:', res.data);
+
+      const raw = res.data as Array<{
+        _id: string;
+        titulo: string;
+        descripcion: string;
+        imagen?: string | null;
+        valoraciones?: Array<{ puntuacion: number }>;
+      }>;
+
+      const mapped = raw.map(r => {
+        const vals = r.valoraciones ?? [];
+        const avg = vals.length
+          ? vals.reduce((sum, v) => sum + v.puntuacion, 0) / vals.length
+          : 0;
+
+        return {
+          id: r._id,
+          title: r.titulo,
+          description: r.descripcion,
+          image: r.imagen ? { uri: r.imagen } : placeholderImage,
+          rating: avg,
+          isFavorite: false,
+        } as Recipe;
+      });
+
+      setAllRecipes(mapped);
+    } catch (err) {
+      console.warn('❌ Error al cargar recetas:', err);
+    }
+  };
 
   useEffect(() => {
-    navigation.setOptions({
-      headerShown: false,
-    });
+    navigation.setOptions({ headerShown: false });
+    fetchRecipes();
   }, [navigation]);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
+    await fetchRecipes();
+    setRefreshing(false);
   }, []);
 
   const navigateToDetails = (recipeId: string) => {
-    navigation.navigate('DetailsScreen', { recipeId });
+    navigation.navigate('DetailsScreen' as never, { recipeId } as never);
   };
+
+  const filteredRecipes = allRecipes.filter(r =>
+    r.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const renderPopularItem = ({ item }: { item: PopularRecipe }) => (
     <Pressable style={styles.popularCard} onPress={() => navigateToDetails(item.id)}>
       <Image source={item.image} style={styles.popularImage} />
     </Pressable>
-  );
-
-  const filteredRecipes = allRecipesMock.filter(r =>
-    r.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const renderAllItem = ({ item }: { item: Recipe }) => (
@@ -81,11 +122,7 @@ export const HomeScreen = () => {
         </Text>
       </View>
       <Pressable style={styles.favoriteButton}>
-        <IonIcon
-          name={item.isFavorite ? 'heart' : 'heart-outline'}
-          size={20}
-          color="#fff"
-        />
+        <IonIcon name={item.isFavorite ? 'heart' : 'heart-outline'} size={20} color="#fff" />
       </Pressable>
     </Pressable>
   );
@@ -99,6 +136,7 @@ export const HomeScreen = () => {
     >
       <SafeAreaView style={styles.container}>
         <Header />
+
         <View style={styles.searchContainer}>
           <LinearGradient
             colors={['#FFFFFF', '#FFD740']}
@@ -112,12 +150,10 @@ export const HomeScreen = () => {
               value={searchQuery}
               style={styles.searchbar}
               inputStyle={styles.searchbarInput}
-              icon={({ size, color }) => (
-                <IonIcon name="search-outline" size={size} color={color} />
-              )}
+              icon={({ size, color }) => <IonIcon name="search-outline" size={size} color={color} />}
             />
           </LinearGradient>
-          <Pressable style={styles.filterButton} onPress={() => navigation.navigate('filter' as never)}>
+          <Pressable style={styles.filterButton}>
             <IonIcon name="options-outline" size={24} color="#333" />
           </Pressable>
         </View>
@@ -141,9 +177,7 @@ export const HomeScreen = () => {
           columnWrapperStyle={styles.allColumnWrapper}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.allList}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         />
       </SafeAreaView>
     </LinearGradient>
@@ -155,25 +189,68 @@ const POP_CARD_WIDTH = (width - 32 - 12 * 2) / 3;
 const ALL_CARD_WIDTH = (width - 32 - 8) / 2;
 
 const styles = StyleSheet.create({
-    gradientContainer: { flex: 1 },
-    container: { flex: 1 },
-    searchContainer: { flexDirection: 'row', alignItems: 'center', padding: 16 },
-    searchGradient: { flex: 1, borderRadius: 20, opacity: 0.7 },
-    searchbar: { backgroundColor: 'transparent', elevation: 0 },
-    searchbarInput: { fontSize: 16 },
-    filterButton: { marginLeft: 8, width: 40, height: 40, borderRadius: 12, backgroundColor: '#E9A300', alignItems: 'center', justifyContent: 'center' },
-    sectionTitle: { fontSize: 16, fontWeight: 'bold', marginHorizontal: 16, marginTop: 12, marginBottom: 8, color: '#333' },
-    popularList: { paddingLeft: 16, paddingBottom: 12 },
-    popularCard: { width: POP_CARD_WIDTH, height: POP_CARD_WIDTH * 0.6, marginRight: 12, borderRadius: 10, overflow: 'hidden' },
-    popularImage: { width: '100%', height: '100%' },
-    allList: { paddingHorizontal: 16, paddingBottom: 16 },
-    allColumnWrapper: { justifyContent: 'space-between', marginBottom: 12 },
-    recipeCard: { width: ALL_CARD_WIDTH, backgroundColor: '#FFF9E6', borderRadius: 10, overflow: 'hidden', position: 'relative' },
-    recipeImage: { width: '100%', height: ALL_CARD_WIDTH * 0.6 },
-    ratingBadge: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 8, paddingHorizontal: 4, flexDirection: 'row', alignItems: 'center' },
-    ratingText: { marginLeft: 2, color: '#fff', fontSize: 10 },
-    recipeInfo: { padding: 8 },
-    recipeTitle: { fontFamily: 'sans-serif-medium', fontSize: 14, marginBottom: 4 },
-    recipeDesc: { fontSize: 12, color: '#333', lineHeight: 16 },
-    favoriteButton: { position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(255,187,47,0.4)', borderRadius: 12, padding: 4 },
+  gradientContainer: { flex: 1 },
+  container: { flex: 1 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+  searchGradient: { flex: 1, borderRadius: 20, opacity: 0.7 },
+  searchbar: { backgroundColor: 'transparent', elevation: 0 },
+  searchbarInput: { fontSize: 16 },
+  filterButton: {
+    marginLeft: 8,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#E9A300',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 8,
+    color: '#333',
+  },
+  popularList: { paddingLeft: 16, paddingBottom: 12 },
+  popularCard: {
+    width: POP_CARD_WIDTH,
+    height: POP_CARD_WIDTH * 0.6,
+    marginRight: 12,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  popularImage: { width: '100%', height: '100%' },
+  allList: { paddingHorizontal: 16, paddingBottom: 16 },
+  allColumnWrapper: { justifyContent: 'space-between', marginBottom: 12 },
+  recipeCard: {
+    width: ALL_CARD_WIDTH,
+    backgroundColor: '#FFF9E6',
+    borderRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  recipeImage: { width: '100%', height: ALL_CARD_WIDTH * 0.6 },
+  ratingBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingText: { marginLeft: 2, color: '#fff', fontSize: 10 },
+  recipeInfo: { padding: 8 },
+  recipeTitle: { fontFamily: 'sans-serif-medium', fontSize: 14, marginBottom: 4 },
+  recipeDesc: { fontSize: 12, color: '#333', lineHeight: 16 },
+  favoriteButton: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(255,187,47,0.4)',
+    borderRadius: 12,
+    padding: 4,
+  },
 });
