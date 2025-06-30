@@ -1,6 +1,4 @@
-// src/presentation/screens/home/HomeScreen.tsx
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'
 import {
   View,
   StyleSheet,
@@ -11,147 +9,169 @@ import {
   Image,
   ImageSourcePropType,
   RefreshControl,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Searchbar } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
-import LinearGradient from 'react-native-linear-gradient';
+  Alert,
+} from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { Searchbar } from 'react-native-paper'
+import { useNavigation } from '@react-navigation/native'
+import LinearGradient from 'react-native-linear-gradient'
 
-import { IonIcon } from '../../components/shared/IonIcon';
-import { Header } from '../../components/shared/header/Header';
-import api from '../../../services/api';
+import { IonIcon } from '../../components/shared/IonIcon'
+import { Header } from '../../components/shared/header/Header'
+import api from '../../../services/api'
 
-const placeholderImage: ImageSourcePropType = require('../../../assets/milanesacpure.png');
+const placeholderImage = require('../../../assets/milanesacpure.png')
 
-type PopularRecipe = {
-  id: string;
-  image: ImageSourcePropType;
-};
-
+type PopularRecipe = { id: string; image: ImageSourcePropType }
 type Recipe = {
-  id: string;
-  title: string;
-  description: string;
-  image: ImageSourcePropType;
-  rating: number;
-  isFavorite: boolean;
-};
+  id: string
+  title: string
+  description: string
+  image: ImageSourcePropType
+  rating: number
+}
 
 export const HomeScreen = () => {
-  const navigation = useNavigation();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-  const [popularRecipes, setPopularRecipes] = useState<PopularRecipe[]>([]);
-  const [allRecipes, setAllRecipes] = useState<Recipe[]>([]);
+  const navigation = useNavigation()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
 
-  // Traer 5 recetas “populares” aleatorias
+  const [popularRecipes, setPopularRecipes] = useState<PopularRecipe[]>([])
+  const [allRecipes, setAllRecipes]       = useState<Recipe[]>([])
+  const [favorites, setFavorites]         = useState<Set<string>>(new Set())
+
+  /** 1) Populares aleatorias */
   const fetchPopular = async () => {
     try {
-      const res = await api.get('/receta/populares');
-      const raw = res.data as Array<{ _id: string; imagen?: string | null }>;
+      const res = await api.get('/receta/populares')
+      const raw = res.data as Array<{ _id: string; imagen?: string | null }>
       setPopularRecipes(
         raw.map(r => ({
           id: r._id,
           image: r.imagen ? { uri: r.imagen } : placeholderImage,
         }))
-      );
-    } catch (e) {
-      console.warn('❌ Error al cargar populares:', e);
+      )
+    } catch (err) {
+      console.warn('❌ Error al cargar populares:', err)
     }
-  };
+  }
 
-  // Traer todas las recetas
+  /** 2) Todas las recetas */
   const fetchAll = async () => {
     try {
-      const res = await api.get('/receta/Allrecetas');
+      const res = await api.get('/receta/Allrecetas')
       const raw = res.data as Array<{
-        _id: string;
-        titulo: string;
-        descripcion: string;
-        imagen?: string | null;
-        valoraciones?: Array<{ puntuacion: number }>;
-      }>;
+        _id: string
+        titulo: string
+        descripcion: string
+        imagen?: string | null
+        valoraciones?: Array<{ rating: number }>
+      }>
       setAllRecipes(
         raw.map(r => {
-          const vals = r.valoraciones ?? [];
+          const vals = r.valoraciones ?? []
           const avg = vals.length
-            ? vals.reduce((sum, v) => sum + v.puntuacion, 0) / vals.length
-            : 0;
+            ? vals.reduce((s, v) => s + v.rating, 0) / vals.length
+            : 0
           return {
             id: r._id,
             title: r.titulo,
             description: r.descripcion,
             image: r.imagen ? { uri: r.imagen } : placeholderImage,
             rating: avg,
-            isFavorite: false,
-          };
+          }
         })
-      );
-    } catch (e) {
-      console.warn('❌ Error al cargar recetas:', e);
+      )
+    } catch (err) {
+      console.warn('❌ Error al cargar recetas:', err)
     }
-  };
+  }
+
+  /** 3) Favoritos del usuario */
+  const fetchFavorites = async () => {
+    try {
+      const res = await api.get('/favs/misFavoritos')
+      console.log('▶️ favoritos raw:', res.data)
+      // Ahora el back devuelve un array de recetas, así que usamos su _id:
+      const favIds = new Set((res.data as Array<{ _id: string }>).map(r => r._id))
+      setFavorites(favIds)
+    } catch (err) {
+      console.warn('❌ Error al cargar favoritos:', err)
+    }
+  }
+
+  /** 4) Toggle favorito */
+  const toggleFavorite = async (recipeId: string) => {
+    try {
+      if (favorites.has(recipeId)) {
+        await api.delete(`/favs/borrar/${recipeId}`)
+        favorites.delete(recipeId)
+      } else {
+        await api.post('/favs/agregar', { recetaId: recipeId })
+        favorites.add(recipeId)
+      }
+      setFavorites(new Set(favorites))
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.message || err.message)
+    }
+  }
 
   useEffect(() => {
-    navigation.setOptions({ headerShown: false });
-    fetchPopular();
-    fetchAll();
-  }, [navigation]);
+    navigation.setOptions({ headerShown: false })
+    fetchPopular()
+    fetchAll()
+    fetchFavorites()
+  }, [navigation])
 
   const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await Promise.all([fetchPopular(), fetchAll()]);
-    setRefreshing(false);
-  }, []);
+    setRefreshing(true)
+    await Promise.all([fetchPopular(), fetchAll(), fetchFavorites()])
+    setRefreshing(false)
+  }, [])
 
-  const navigateToDetails = (recipeId: string) => {
-    navigation.navigate('DetailsScreen' as never, { recipeId } as never);
-  };
+  const navigateToDetails = (recipeId: string) =>
+    navigation.navigate('DetailsScreen' as never, { recipeId } as never)
 
-  // Alterna el estado "isFavorite" de la receta indicada
-  const toggleFavorite = (id: string) => {
-    setAllRecipes(prev =>
-      prev.map(r =>
-        r.id === id ? { ...r, isFavorite: !r.isFavorite } : r
-      )
-    );
-  };
-
-  const filteredRecipes = allRecipes.filter(r =>
+  const filtered = allRecipes.filter(r =>
     r.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  )
 
-  const renderPopularItem = ({ item }: { item: PopularRecipe }) => (
-    <Pressable style={styles.popularCard} onPress={() => navigateToDetails(item.id)}>
+  const renderPopular = ({ item }: { item: PopularRecipe }) => (
+    <Pressable
+      style={styles.popularCard}
+      onPress={() => navigateToDetails(item.id)}
+    >
       <Image source={item.image} style={styles.popularImage} />
     </Pressable>
-  );
+  )
 
-  const renderAllItem = ({ item }: { item: Recipe }) => (
-    <Pressable style={styles.recipeCard} onPress={() => navigateToDetails(item.id)}>
-      <Image source={item.image} style={styles.recipeImage} />
-      <View style={styles.ratingBadge}>
-        <IonIcon name="star" size={12} color="#FFD700" />
-        <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-      </View>
-      <View style={styles.recipeInfo}>
-        <Text style={styles.recipeTitle}>{item.title}</Text>
-        <Text style={styles.recipeDesc} numberOfLines={3}>
-          {item.description}
-        </Text>
-      </View>
+  const renderRecipe = ({ item }: { item: Recipe }) => {
+    const isFav = favorites.has(item.id)
+    return (
       <Pressable
-        style={styles.favoriteButton}
-        onPress={() => toggleFavorite(item.id)}
+        style={styles.recipeCard}
+        onPress={() => navigateToDetails(item.id)}
       >
-        <IonIcon
-          name={item.isFavorite ? 'heart' : 'heart-outline'}
-          size={20}
-          color="#fff"
-        />
+        <Image source={item.image} style={styles.recipeImage} />
+        <View style={styles.ratingBadge}>
+          <IonIcon name="star" size={12} color="#FFD700" />
+          <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+        </View>
+        <View style={styles.recipeInfo}>
+          <Text style={styles.recipeTitle}>{item.title}</Text>
+          <Text style={styles.recipeDesc} numberOfLines={3}>
+            {item.description}
+          </Text>
+        </View>
+        <Pressable
+          style={styles.favoriteButton}
+          onPress={() => toggleFavorite(item.id)}
+        >
+          <IonIcon name={isFav ? 'heart' : 'heart-outline'} size={20} color="#fff" />
+        </Pressable>
       </Pressable>
-    </Pressable>
-  );
+    )
+  }
 
   return (
     <LinearGradient
@@ -163,6 +183,7 @@ export const HomeScreen = () => {
       <SafeAreaView style={styles.container}>
         <Header />
 
+        {/* Search */}
         <View style={styles.searchContainer}>
           <LinearGradient
             colors={['#FFFFFF', '#FFD740']}
@@ -186,21 +207,23 @@ export const HomeScreen = () => {
           </Pressable>
         </View>
 
+        {/* Populares */}
         <Text style={styles.sectionTitle}>RECETAS MÁS POPULARES</Text>
         <FlatList
           data={popularRecipes}
           horizontal
-          keyExtractor={item => item.id}
-          renderItem={renderPopularItem}
+          keyExtractor={i => i.id}
+          renderItem={renderPopular}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.popularList}
         />
 
+        {/* Todas */}
         <Text style={styles.sectionTitle}>TODAS LAS RECETAS</Text>
         <FlatList
-          data={filteredRecipes}
-          keyExtractor={item => item.id}
-          renderItem={renderAllItem}
+          data={filtered}
+          keyExtractor={i => i.id}
+          renderItem={renderRecipe}
           numColumns={2}
           columnWrapperStyle={styles.allColumnWrapper}
           showsVerticalScrollIndicator={false}
@@ -211,12 +234,12 @@ export const HomeScreen = () => {
         />
       </SafeAreaView>
     </LinearGradient>
-  );
-};
+  )
+}
 
-const { width } = Dimensions.get('window');
-const POP_CARD_WIDTH = (width - 32 - 12 * 2) / 3;
-const ALL_CARD_WIDTH = (width - 32 - 8) / 2;
+const { width } = Dimensions.get('window')
+const POP_CARD_WIDTH = (width - 32 - 12 * 2) / 3
+const ALL_CARD_WIDTH = (width - 32 - 8) / 2
 
 const styles = StyleSheet.create({
   gradientContainer: { flex: 1 },
@@ -283,4 +306,4 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 4,
   },
-});
+})
