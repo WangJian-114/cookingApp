@@ -197,9 +197,12 @@ export const HomeScreen = () => {
               value={searchQuery}
               style={styles.searchbar}
               inputStyle={styles.searchbarInput}
-              icon={({ size, color }) => (
-                <IonIcon name="search-outline" size={size} color={color} />
-              )}
+               icon={({ size, color }) => (
+                  <IonIcon name="search-outline" size={size} color={color} />
+                )}
+                clearIcon={({ size, color }) => (
+                  <IonIcon name="close-circle-outline" size={size} color={color} />
+                )}
             />
           </LinearGradient>
           <Pressable style={styles.filterButton}>
