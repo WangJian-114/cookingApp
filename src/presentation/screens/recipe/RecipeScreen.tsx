@@ -21,8 +21,16 @@ import { launchImageLibrary, Asset } from 'react-native-image-picker';
 import LinearGradient from 'react-native-linear-gradient';
 import { Header } from '../../components/shared/header/Header';
 import { IonIcon } from '../../components/shared/IonIcon';
+import api from '../../../services/api';
 
 const PENDING_KEY = 'PENDING_RECIPES';
+
+// Tipo para ingredientes mejorado
+interface Ingrediente {
+  nombre: string;
+  cantidad: string;
+  unidad: string;
+}
 
 const TagSelector: React.FC<{
   tags: string[];
@@ -48,25 +56,43 @@ const TagSelector: React.FC<{
   </ScrollView>
 );
 
+// Componente mejorado para ingredientes
 const IngredientList: React.FC<{
-  items: string[];
-  onChange: (i: number, v: string) => void;
+  items: Ingrediente[];
+  onChange: (i: number, field: keyof Ingrediente, v: string) => void;
   onAdd: () => void;
   onRemove: (i: number) => void;
 }> = ({ items, onChange, onAdd, onRemove }) => (
   <View style={styles.ingredientsSection}>
+    <Text style={styles.sectionTitle}>Ingredientes *</Text>
     {items.map((ing, i) => (
       <View key={i} style={styles.ingredientRow}>
         <View style={styles.ingredientIcon}>
           <Text style={styles.ingredientNumber}>{i + 1}</Text>
         </View>
-        <TextInput
-          style={styles.ingredientInput}
-          placeholder={`Ingrediente ${i + 1}`}
-          placeholderTextColor="#999"
-          value={ing}
-          onChangeText={t => onChange(i, t)}
-        />
+        <View style={styles.ingredientInputs}>
+          <TextInput
+            style={[styles.ingredientInput, styles.ingredientNombre]}
+            placeholder="Ingrediente"
+            placeholderTextColor="#999"
+            value={ing.nombre}
+            onChangeText={t => onChange(i, 'nombre', t)}
+          />
+          <TextInput
+            style={[styles.ingredientInput, styles.ingredientCantidad]}
+            placeholder="1"
+            placeholderTextColor="#999"
+            value={ing.cantidad}
+            onChangeText={t => onChange(i, 'cantidad', t)}
+          />
+          <TextInput
+            style={[styles.ingredientInput, styles.ingredientUnidad]}
+            placeholder="unidad"
+            placeholderTextColor="#999"
+            value={ing.unidad}
+            onChangeText={t => onChange(i, 'unidad', t)}
+          />
+        </View>
         {items.length > 1 && (
           <TouchableOpacity
             style={styles.removeButton}
@@ -101,10 +127,49 @@ const ImagePickerSection: React.FC<{
   </TouchableOpacity>
 );
 
+// Selector de dificultad
+const DifficultySelector: React.FC<{
+  selected: string;
+  onSelect: (d: string) => void;
+}> = ({ selected, onSelect }) => {
+  const difficulties = ['Fácil', 'Media', 'Difícil'];
+  return (
+    <View style={styles.difficultySection}>
+      <Text style={styles.sectionTitle}>Dificultad</Text>
+      <View style={styles.difficultyOptions}>
+        {difficulties.map(diff => (
+          <TouchableOpacity
+            key={diff}
+            style={[
+              styles.difficultyOption,
+              selected === diff && styles.activeDifficultyOption
+            ]}
+            onPress={() => onSelect(diff)}
+          >
+            <Text style={[
+              styles.difficultyText,
+              selected === diff && styles.activeDifficultyText
+            ]}>
+              {diff}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+};
+
 export const RecipeScreen = () => {
   const [receta, setReceta] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [ingredientes, setIngredientes] = useState<string[]>(['', '']);
+  const [instrucciones, setInstrucciones] = useState('');
+  const [tiempoPreparacion, setTiempoPreparacion] = useState('30');
+  const [porciones, setPorciones] = useState('4');
+  const [dificultad, setDificultad] = useState('Fácil');
+  const [ingredientes, setIngredientes] = useState<Ingrediente[]>([
+    { nombre: '', cantidad: '', unidad: '' },
+    { nombre: '', cantidad: '', unidad: '' }
+  ]);
   const [selectedTag, setSelectedTag] = useState('Desayuno');
   const [photo, setPhoto] = useState<Asset | null>(null);
   const [showOfflineModal, setShowOfflineModal] = useState(false);
@@ -195,17 +260,140 @@ export const RecipeScreen = () => {
     }
   };
 
+  // Validar formulario mejorado
+  const validateForm = (): string | null => {
+    if (!receta.trim()) return 'El título de la receta es requerido';
+
+    const ingredientesValidos = ingredientes.filter(i =>
+      i.nombre.trim() !== '' && i.cantidad.trim() !== '' && i.unidad.trim() !== ''
+    );
+    if (ingredientesValidos.length === 0) return 'Debe agregar al menos un ingrediente completo (nombre, cantidad y unidad)';
+
+    const tiempoNum = parseInt(tiempoPreparacion);
+    if (isNaN(tiempoNum) || tiempoNum <= 0) return 'El tiempo de preparación debe ser un número válido mayor a 0';
+
+    const porcionesNum = parseInt(porciones);
+    if (isNaN(porcionesNum) || porcionesNum <= 0) return 'Las porciones deben ser un número válido mayor a 0';
+
+    return null;
+  };
+
   // inicia flujo de guardado
   const handleSave = async () => {
-    const payload = { receta, descripcion, ingredientes, selectedTag, photoUri: photo?.uri };
+    // Validar formulario
+    const validationError = validateForm();
+    if (validationError) {
+      Alert.alert('Error de validación', validationError);
+      return;
+    }
+
     const state = await NetInfo.fetch();
-    if (state.isConnected) {
-      console.log('Enviando al servidor:', payload);
-      Alert.alert('¡Listo!', 'Tu receta se publicó correctamente.');
-      // ▶️ aquí limpiar formulario si quieres
-    } else {
-      setPendingPayload(payload);
+    if (!state.isConnected) {
+      setPendingPayload({
+        receta,
+        descripcion,
+        instrucciones,
+        tiempoPreparacion,
+        porciones,
+        dificultad,
+        ingredientes,
+        selectedTag,
+        photoUri: photo?.uri,
+      });
       setShowOfflineModal(true);
+      return;
+    }
+
+    // Construir FormData correctamente
+    const formData = new FormData();
+    formData.append('titulo', receta.trim());
+    formData.append('descripcion', descripcion.trim());
+    formData.append('instrucciones', instrucciones.trim() || descripcion.trim());
+    formData.append('tiempo_preparacion', tiempoPreparacion);
+    formData.append('dificultad', dificultad);
+    formData.append('porciones', porciones);
+
+    // Filtrar y formatear ingredientes
+    const ingredientesValidos = ingredientes
+      .filter(i => i.nombre.trim() !== '' && i.cantidad.trim() !== '' && i.unidad.trim() !== '')
+      .map(i => ({
+        nombre: i.nombre.trim(),
+        cantidad: parseFloat(i.cantidad) || 1,
+        unidad: i.unidad.trim(),
+      }));
+    formData.append('ingredientes', JSON.stringify(ingredientesValidos));
+
+    // CORRECIÓN CRÍTICA: Formato correcto para imagen en React Native
+    if (photo && photo.uri) {
+      const imageFile = {
+        uri: photo.uri,
+        type: photo.type || 'image/jpeg',
+        name: photo.fileName || `photo_${Date.now()}.jpg`,
+      } as any;
+
+      formData.append('media', imageFile);
+    }
+
+    console.log('FormData a enviar:', {
+      titulo: receta.trim(),
+      descripcion: descripcion.trim(),
+      instrucciones: instrucciones.trim() || descripcion.trim(),
+      tiempo_preparacion: tiempoPreparacion,
+      dificultad,
+      porciones,
+      ingredientes: ingredientesValidos,
+      hasImage: !!photo
+    });
+
+    try {
+      const response = await api.post('/receta/newreceta', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 30000, // 30 segundos timeout
+      });
+
+      if (response.status === 201) {
+        Alert.alert('¡Éxito!', 'Receta creada correctamente', [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Limpiar formulario
+              setReceta('');
+              setDescripcion('');
+              setInstrucciones('');
+              setTiempoPreparacion('30');
+              setPorciones('4');
+              setDificultad('Fácil');
+              setIngredientes([
+                { nombre: '', cantidad: '', unidad: '' },
+                { nombre: '', cantidad: '', unidad: '' }
+              ]);
+              setSelectedTag('Desayuno');
+              setPhoto(null);
+            }
+          }
+        ]);
+      } else {
+        console.error('Respuesta inesperada:', response);
+        Alert.alert('Error', 'No se pudo crear la receta');
+      }
+    } catch (error: any) {
+      console.error('Error completo:', error);
+
+      if (error.response) {
+        // El servidor respondió con un código de error
+        console.error('Error response:', error.response.data);
+        Alert.alert('Error del servidor', error.response.data?.message || 'Error desconocido');
+      } else if (error.request) {
+        // La petición se hizo pero no hubo respuesta
+        console.error('Error request:', error.request);
+        Alert.alert('Error de conexión', 'No se pudo conectar con el servidor');
+      } else {
+        // Algo pasó al configurar la petición
+        console.error('Error config:', error.message);
+        Alert.alert('Error', 'Hubo un problema enviando la receta');
+      }
     }
   };
 
@@ -215,12 +403,14 @@ export const RecipeScreen = () => {
       { text: 'Sí', onPress: () => console.log('Volviendo…') },
     ]);
 
-  const handleAddIngredient = () => setIngredientes([...ingredientes, '']);
-  const handleIngredientChange = (i: number, v: string) => {
+  const handleAddIngredient = () => setIngredientes([...ingredientes, { nombre: '', cantidad: '', unidad: '' }]);
+
+  const handleIngredientChange = (i: number, field: keyof Ingrediente, v: string) => {
     const c = [...ingredientes];
-    c[i] = v;
+    c[i][field] = v;
     setIngredientes(c);
   };
+
   const handleRemoveIngredient = (i: number) =>
     ingredientes.length > 1 && setIngredientes(ingredientes.filter((_, idx) => idx !== i));
 
@@ -256,7 +446,7 @@ export const RecipeScreen = () => {
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
-              placeholder="Receta"
+              placeholder="Nombre de la receta*"
               placeholderTextColor="#999"
               value={receta}
               onChangeText={setReceta}
@@ -266,13 +456,52 @@ export const RecipeScreen = () => {
           <View style={styles.inputContainer}>
             <TextInput
               style={[styles.input, styles.descriptionInput]}
-              placeholder="Descripción y pasos..."
+              placeholder="Descripción de la receta..."
               placeholderTextColor="#999"
               value={descripcion}
               onChangeText={setDescripcion}
               multiline
             />
           </View>
+
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={[styles.input, styles.descriptionInput]}
+              placeholder="Instrucciones paso a paso..."
+              placeholderTextColor="#999"
+              value={instrucciones}
+              onChangeText={setInstrucciones}
+              multiline
+            />
+          </View>
+
+          {/* Campos de tiempo y porciones */}
+          <View style={styles.rowContainer}>
+            <View style={styles.halfInputContainer}>
+              <Text style={styles.inputLabel}>Tiempo (min)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="30"
+                placeholderTextColor="#999"
+                value={tiempoPreparacion}
+                onChangeText={setTiempoPreparacion}
+                keyboardType="numeric"
+              />
+            </View>
+            <View style={styles.halfInputContainer}>
+              <Text style={styles.inputLabel}>Porciones</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="4"
+                placeholderTextColor="#999"
+                value={porciones}
+                onChangeText={setPorciones}
+                keyboardType="numeric"
+              />
+            </View>
+          </View>
+
+          <DifficultySelector selected={dificultad} onSelect={setDificultad} />
 
           <IngredientList
             items={ingredientes}
@@ -284,7 +513,7 @@ export const RecipeScreen = () => {
           <ImagePickerSection photo={photo} onPick={handleAddImage} />
 
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveText}>Guardar</Text>
+            <Text style={styles.saveText}>Guardar Receta</Text>
           </TouchableOpacity>
         </ScrollView>
 
@@ -333,8 +562,24 @@ const styles = StyleSheet.create({
   activeTagText: { color: '#333', fontWeight: '600' },
 
   content: { flex: 1, padding: 16 },
-  inputContainer: { marginBottom: 5, margin:8 },
+  inputContainer: { marginBottom: 5, margin: 8 },
 
+  // Contenedor para campos en fila
+  rowContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 5,
+    margin: 8,
+  },
+  halfInputContainer: {
+    flex: 0.48,
+  },
+  inputLabel: {
+    fontSize: 14,
+    color: '#333',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
 
   input: {
     backgroundColor: 'rgba(255,255,255,0.9)',
@@ -344,9 +589,52 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  descriptionInput: { minHeight: 100, marginBottom: 10  },
+  descriptionInput: { minHeight: 100, marginBottom: 10 },
 
-  ingredientsSection: { marginBottom: 16 },
+  // Estilos para sección de título
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+
+  // Estilos para selector de dificultad
+  difficultySection: {
+    marginBottom: 16,
+    margin: 8,
+  },
+  difficultyOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  difficultyOption: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    marginHorizontal: 4,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  activeDifficultyOption: {
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderColor: '#FFA500',
+  },
+  difficultyText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  activeDifficultyText: {
+    color: '#333',
+    fontWeight: '600',
+  },
+
+  // Estilos mejorados para ingredientes
+  ingredientsSection: { marginBottom: 16, margin: 8 },
   ingredientRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   ingredientIcon: {
     width: 24,
@@ -357,15 +645,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ingredientNumber: { color: '#fff', fontSize: 12 },
-  ingredientInput: {
+  ingredientInputs: {
     flex: 1,
+    flexDirection: 'row',
     marginLeft: 8,
+  },
+  ingredientInput: {
     backgroundColor: 'rgba(255,255,255,0.9)',
     borderRadius: 8,
     padding: 12,
-    fontSize: 16,
+    fontSize: 14,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+    marginRight: 4,
+  },
+  ingredientNombre: {
+    flex: 2,
+  },
+  ingredientCantidad: {
+    flex: 0.8,
+  },
+  ingredientUnidad: {
+    flex: 1,
   },
   removeButton: {
     marginLeft: 8,
@@ -404,14 +705,13 @@ const styles = StyleSheet.create({
   imageHelpText: { color: '#999', fontSize: 14 },
 
   saveButton: {
-//    backgroundColor: '#FFD740',
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingVertical: 14,
     alignItems: 'center',
     marginBottom: 24,
-    marginLeft : 50,
-    marginRight : 50,
+    marginLeft: 50,
+    marginRight: 50,
   },
   saveText: { color: '#000', fontSize: 16, fontWeight: '600' },
 
