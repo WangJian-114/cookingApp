@@ -7,7 +7,7 @@ import { NotificationScreen } from '../screens/notification/NotificationScreen';
 import { IonIcon } from '../components/shared/IonIcon';
 import { HomeStackNavigator } from './HomeStackNavigator';
 
-import { RecipesStackNavigator } from './RecipesStackNavigator';
+import { RecipeScreen } from '../screens/recipe/RecipeScreen';
 
 
 const Tab = createBottomTabNavigator();
@@ -44,8 +44,8 @@ export const BottomTabNavigator = () => {
       />
 
       <Tab.Screen
-        name="Recipe" //
-        component={RecipesStackNavigator}
+        name="Recipe"
+        component={RecipeScreen}
         options={{
           headerShown: false,
           tabBarIcon: ({ color, size }) => (
