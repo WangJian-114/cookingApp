@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const api = axios.create({
   baseURL: 'http://10.0.2.2:4000/api',
+  //baseURL: 'cookingapp-production.up.railway.app/api',
   timeout: 5000,
 });
 
