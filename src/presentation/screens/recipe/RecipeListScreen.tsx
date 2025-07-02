@@ -20,32 +20,42 @@ import { IonIcon } from '../../components/shared/IonIcon';
 import { Header } from '../../components/shared/header/Header';
 
 import { RecipesStackParamList } from '../../navigation/RecipesStackNavigator';
+import api from '../../../services/api'
 
 const sampleImage: ImageSourcePropType = require('../../../assets/milanesacpure.png');
 
-type Recipe = {
-  id: string;
-  title: string;
-  description: string;
-  image: ImageSourcePropType;
-  rating: number;
-  isFavorite: boolean;
-  category: string;
+type Ingredient = {
+  nombre: string;
+  cantidad: number;
+  unidad: string;
 };
+
+type Author = {
+  _id: string;
+  name: string;
+  email: string;
+};
+
+type Recipe = {
+  _id: string;
+  titulo: string;
+  descripcion?: string;
+  instrucciones?: string;
+  tiempo_preparacion?: number;
+  dificultad?: 'Fácil' | 'Media' | 'Difícil';
+  fecha_creacion?: string; // Mongo devuelve date ISO
+  imagen?: string;
+  autor_id: Author;
+  porciones?: number;
+  ingredientes?: Ingredient[];
+  valoraciones?: string[]; // Si solo tenemos los IDs
+};
+
 
 type RecipesListScreenNavigationProp = StackNavigationProp<
   RecipesStackParamList,
   'RecipesList'
 >;
-
-const allRecipesMock: Recipe[] = [
-  { id: '1', title: 'Locro', description: 'Lorem ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.', image: sampleImage, rating: 4.5, isFavorite: false, category: 'Almuerzo' },
-  { id: '2', title: 'Locro', description: 'Lorem ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.', image: sampleImage, rating: 4.2, isFavorite: true, category: 'Cena' },
-  { id: '3', title: 'Locro', description: 'Lorem ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.', image: sampleImage, rating: 4.8, isFavorite: false, category: 'Desayuno' },
-  { id: '4', title: 'Locro', description: 'Lorem ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.', image: sampleImage, rating: 4.7, isFavorite: true, category: 'Postres' },
-  { id: '5', title: 'Empanadas', description: 'Lorem ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy text ever since the 1500s.', image: sampleImage, rating: 4.6, isFavorite: false, category: 'Snacks' },
-  { id: '6', title: 'Asado', description: 'Lorem ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy text ever since the 1500s.', image: sampleImage, rating: 4.9, isFavorite: true, category: 'Almuerzo' },
-];
 
 const { width } = Dimensions.get('window');
 
@@ -54,25 +64,39 @@ export const RecipesListScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    navigation.setOptions({
-      headerShown: false,
-    });
-  }, [navigation]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  }, []);
+  console.log(recipes)
+
+    useEffect(() => {
+      navigation.setOptions({ headerShown: false });
+      fetchRecipes();
+    }, [navigation, fetchRecipes]);
+
+    const fetchRecipes = useCallback(async () => {
+      try {
+        const response = await api.get('/receta/misRecetas');
+        setRecipes(response.data);
+      } catch (error) {
+        console.error('Error fetching recipes:', error);
+      }
+    }, []);
+
+    const onRefresh = useCallback(async () => {
+      setRefreshing(true);
+      try {
+        await fetchRecipes();
+      } finally {
+        setRefreshing(false);
+      }
+    }, [fetchRecipes]); //Actualizar cada que se añada un nuevo receta
 
   const navigateToDetails = (recipeId: string) => {
     navigation.navigate('DetailsScreen', { recipeId });
   };
 
-  const filtered = allRecipesMock.filter(r =>
-    r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filtered = recipes.filter(r =>
+    r.titulo.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const viewRecipeDetails = (recipeId: string) => {
     navigation.navigate('DetailsScreen', { recipeId });
@@ -80,34 +104,38 @@ export const RecipesListScreen = () => {
 
 
   const editRecipe = (recipeId: string) => {
-    navigation.navigate('RecipeEdit', { recipeId });
+    navigation.navigate('RecipeEdit', { recipeId: recipeId });
   };
 
-  const renderItem = ({ item }: { item: Recipe }) => (
-    <Pressable style={styles.recipeCard} onPress={() => viewRecipeDetails(item.id)}>
-      <Image source={item.image} style={styles.recipeImage} />
+const renderItem = ({ item }: { item: Recipe }) => (
+  <Pressable style={styles.recipeCard} onPress={() => viewRecipeDetails(item._id)}>
+    <Image
+      source={
+        item.imagen
+          ? { uri: item.imagen }
+          : require('../../../assets/milanesacpure.png') // fallback
+      }
+      style={styles.recipeImage}
+    />
 
-      <View style={styles.recipeContent}>
-        <View style={styles.recipeInfo}>
-          <Text style={styles.recipeTitle}>{item.title}</Text>
-          <Text style={styles.recipeDesc} numberOfLines={4}>
-            {item.description}
-          </Text>
-        </View>
-
-        <Pressable
-          style={styles.editButton}
-          onPress={() => editRecipe(item.id)}
-        >
-          <IonIcon
-            name="create-outline"
-            size={20}
-            color="#E9A300"
-          />
-        </Pressable>
+    <View style={styles.recipeContent}>
+      <View style={styles.recipeInfo}>
+        <Text style={styles.recipeTitle}>{item.titulo}</Text>
+        <Text style={styles.recipeDesc} numberOfLines={4}>
+          {item.descripcion}
+        </Text>
       </View>
-    </Pressable>
-  );
+
+      <Pressable
+        style={styles.editButton}
+        onPress={() => editRecipe(item._id)}
+      >
+        <IonIcon name="create-outline" size={20} color="#E9A300" />
+      </Pressable>
+    </View>
+  </Pressable>
+);
+
 
   return (
     <LinearGradient
@@ -146,7 +174,7 @@ export const RecipesListScreen = () => {
         {/* Recipes List */}
         <FlatList
           data={filtered}
-          keyExtractor={item => item.id}
+          keyExtractor={item => item._id}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContainer}
