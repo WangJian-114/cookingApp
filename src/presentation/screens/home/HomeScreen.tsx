@@ -141,7 +141,7 @@ export const HomeScreen = () => {
       style={styles.popularCard}
       onPress={() => navigateToDetails(item.id)}
     >
-      <Image source={item.image} style={styles.popularImage} />
+      <Image source={item.image} style={styles.popularImage} resizeMode="cover" />
     </Pressable>
   )
 
@@ -275,8 +275,13 @@ const styles = StyleSheet.create({
     marginRight: 12,
     borderRadius: 10,
     overflow: 'hidden',
+    marginBottom: 40,
+
   },
-  popularImage: { width: '100%', height: '100%' },
+  popularImage: {
+      width: POP_CARD_WIDTH,
+      height: '100%',
+       },
   allList: { paddingHorizontal: 16, paddingBottom: 16 },
   allColumnWrapper: { justifyContent: 'space-between', marginBottom: 12 },
   recipeCard: {
