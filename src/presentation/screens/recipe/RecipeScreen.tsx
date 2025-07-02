@@ -13,6 +13,7 @@ import {
   Image,
   PermissionsAndroid,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NetInfo from '@react-native-community/netinfo';
@@ -25,7 +26,6 @@ import api from '../../../services/api';
 
 const PENDING_KEY = 'PENDING_RECIPES';
 
-// Tipo para ingredientes mejorado
 interface Ingrediente {
   nombre: string;
   cantidad: string;
@@ -56,58 +56,126 @@ const TagSelector: React.FC<{
   </ScrollView>
 );
 
-// Componente mejorado para ingredientes
+// Componente modal para seleccionar unidad
+const UnitSelector: React.FC<{
+  visible: boolean;
+  onClose: () => void;
+  onSelect: (unit: string) => void;
+  currentUnit: string;
+}> = ({ visible, onClose, onSelect, currentUnit }) => {
+  const units = ['gr', 'kg', 'ml', 'lt', 'taza', 'cdta', 'cda', 'unidad', 'pizca', 'diente', 'hoja'];
+
+  return (
+    <Modal transparent visible={visible} animationType="fade">
+      <View style={styles.modalOverlay}>
+        <View style={styles.unitModalBox}>
+          <Text style={styles.modalTitle}>Seleccionar Unidad</Text>
+          <ScrollView style={styles.unitList}>
+            {units.map(unit => (
+              <TouchableOpacity
+                key={unit}
+                style={[
+                  styles.unitOption,
+                  currentUnit === unit && styles.activeUnitOption
+                ]}
+                onPress={() => {
+                  onSelect(unit);
+                  onClose();
+                }}
+              >
+                <Text style={[
+                  styles.unitOptionText,
+                  currentUnit === unit && styles.activeUnitOptionText
+                ]}>
+                  {unit}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Text style={styles.closeButtonText}>Cerrar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const IngredientList: React.FC<{
   items: Ingrediente[];
   onChange: (i: number, field: keyof Ingrediente, v: string) => void;
   onAdd: () => void;
   onRemove: (i: number) => void;
-}> = ({ items, onChange, onAdd, onRemove }) => (
-  <View style={styles.ingredientsSection}>
-    <Text style={styles.sectionTitle}>Ingredientes *</Text>
-    {items.map((ing, i) => (
-      <View key={i} style={styles.ingredientRow}>
-        <View style={styles.ingredientIcon}>
-          <Text style={styles.ingredientNumber}>{i + 1}</Text>
+}> = ({ items, onChange, onAdd, onRemove }) => {
+  const [unitModalVisible, setUnitModalVisible] = useState(false);
+  const [selectedIngredientIndex, setSelectedIngredientIndex] = useState(0);
+
+  const handleUnitPress = (index: number) => {
+    setSelectedIngredientIndex(index);
+    setUnitModalVisible(true);
+  };
+
+  const handleUnitSelect = (unit: string) => {
+    onChange(selectedIngredientIndex, 'unidad', unit);
+  };
+
+  return (
+    <View style={styles.ingredientsSection}>
+      <Text style={styles.sectionTitle}>Ingredientes *</Text>
+      {items.map((ing, i) => (
+        <View key={i} style={styles.ingredientRow}>
+          <View style={styles.ingredientIcon}>
+            <Text style={styles.ingredientNumber}>{i + 1}</Text>
+          </View>
+          <View style={styles.ingredientInputs}>
+            <TextInput
+              style={[styles.ingredientInput, styles.ingredientNombre]}
+              placeholder="Ingrediente"
+              placeholderTextColor="#999"
+              value={ing.nombre}
+              onChangeText={t => onChange(i, 'nombre', t)}
+            />
+            <TextInput
+              style={[styles.ingredientInput, styles.ingredientCantidad]}
+              placeholder="1"
+              placeholderTextColor="#999"
+              value={ing.cantidad}
+              onChangeText={t => onChange(i, 'cantidad', t)}
+              keyboardType="numeric"
+            />
+            <TouchableOpacity
+              style={[styles.ingredientInput, styles.ingredientUnidad]}
+              onPress={() => handleUnitPress(i)}
+            >
+              <Text style={styles.unidadSelectorText}>
+                {ing.unidad || 'unidad'}
+              </Text>
+              <Text style={styles.dropdownArrow}>▼</Text>
+            </TouchableOpacity>
+          </View>
+          {items.length > 1 && (
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={() => onRemove(i)}
+            >
+              <Text style={styles.removeButtonText}>×</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        <View style={styles.ingredientInputs}>
-          <TextInput
-            style={[styles.ingredientInput, styles.ingredientNombre]}
-            placeholder="Ingrediente"
-            placeholderTextColor="#999"
-            value={ing.nombre}
-            onChangeText={t => onChange(i, 'nombre', t)}
-          />
-          <TextInput
-            style={[styles.ingredientInput, styles.ingredientCantidad]}
-            placeholder="1"
-            placeholderTextColor="#999"
-            value={ing.cantidad}
-            onChangeText={t => onChange(i, 'cantidad', t)}
-          />
-          <TextInput
-            style={[styles.ingredientInput, styles.ingredientUnidad]}
-            placeholder="unidad"
-            placeholderTextColor="#999"
-            value={ing.unidad}
-            onChangeText={t => onChange(i, 'unidad', t)}
-          />
-        </View>
-        {items.length > 1 && (
-          <TouchableOpacity
-            style={styles.removeButton}
-            onPress={() => onRemove(i)}
-          >
-            <Text style={styles.removeButtonText}>×</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    ))}
-    <TouchableOpacity onPress={onAdd}>
-      <Text style={styles.addIngredientText}>+ Agregar ingrediente</Text>
-    </TouchableOpacity>
-  </View>
-);
+      ))}
+      <TouchableOpacity onPress={onAdd}>
+        <Text style={styles.addIngredientText}>+ Agregar ingrediente</Text>
+      </TouchableOpacity>
+
+      <UnitSelector
+        visible={unitModalVisible}
+        onClose={() => setUnitModalVisible(false)}
+        onSelect={handleUnitSelect}
+        currentUnit={items[selectedIngredientIndex]?.unidad || ''}
+      />
+    </View>
+  );
+};
 
 const ImagePickerSection: React.FC<{
   photo: Asset | null;
@@ -127,7 +195,6 @@ const ImagePickerSection: React.FC<{
   </TouchableOpacity>
 );
 
-// Selector de dificultad
 const DifficultySelector: React.FC<{
   selected: string;
   onSelect: (d: string) => void;
@@ -167,13 +234,14 @@ export const RecipeScreen = () => {
   const [porciones, setPorciones] = useState('4');
   const [dificultad, setDificultad] = useState('Fácil');
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>([
-    { nombre: '', cantidad: '', unidad: '' },
-    { nombre: '', cantidad: '', unidad: '' }
+    { nombre: '', cantidad: '', unidad: 'gr' },
+    { nombre: '', cantidad: '', unidad: 'gr' }
   ]);
   const [selectedTag, setSelectedTag] = useState('Desayuno');
   const [photo, setPhoto] = useState<Asset | null>(null);
   const [showOfflineModal, setShowOfflineModal] = useState(false);
   const [pendingPayload, setPendingPayload] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
 
   // cuando volvemos online, sincroniza pendientes
   useEffect(() => {
@@ -244,7 +312,7 @@ export const RecipeScreen = () => {
       Alert.alert('¡Listo!', 'Tu receta se publicó correctamente.');
       setShowOfflineModal(false);
       setPendingPayload(null);
-      // ▶️ aquí limpiar formulario si quieres
+      clearForm();
     }
     // si aún offline, no hacemos nada (modal sigue abierto)
   };
@@ -256,8 +324,24 @@ export const RecipeScreen = () => {
       setShowOfflineModal(false);
       setPendingPayload(null);
       Alert.alert('Guardado', 'Tu receta se guardó localmente.');
-      // ▶️ aquí limpiar formulario si quieres
+      clearForm();
     }
+  };
+
+  // Función para limpiar el formulario
+  const clearForm = () => {
+    setReceta('');
+    setDescripcion('');
+    setInstrucciones('');
+    setTiempoPreparacion('30');
+    setPorciones('4');
+    setDificultad('Fácil');
+    setIngredientes([
+      { nombre: '', cantidad: '', unidad: 'gr' },
+      { nombre: '', cantidad: '', unidad: 'gr' }
+    ]);
+    setSelectedTag('Desayuno');
+    setPhoto(null);
   };
 
   // Validar formulario mejorado
@@ -287,6 +371,8 @@ export const RecipeScreen = () => {
       return;
     }
 
+    setSaving(true);
+
     const state = await NetInfo.fetch();
     if (!state.isConnected) {
       setPendingPayload({
@@ -301,6 +387,7 @@ export const RecipeScreen = () => {
         photoUri: photo?.uri,
       });
       setShowOfflineModal(true);
+      setSaving(false);
       return;
     }
 
@@ -357,21 +444,7 @@ export const RecipeScreen = () => {
         Alert.alert('¡Éxito!', 'Receta creada correctamente', [
           {
             text: 'OK',
-            onPress: () => {
-              // Limpiar formulario
-              setReceta('');
-              setDescripcion('');
-              setInstrucciones('');
-              setTiempoPreparacion('30');
-              setPorciones('4');
-              setDificultad('Fácil');
-              setIngredientes([
-                { nombre: '', cantidad: '', unidad: '' },
-                { nombre: '', cantidad: '', unidad: '' }
-              ]);
-              setSelectedTag('Desayuno');
-              setPhoto(null);
-            }
+            onPress: clearForm
           }
         ]);
       } else {
@@ -394,6 +467,8 @@ export const RecipeScreen = () => {
         console.error('Error config:', error.message);
         Alert.alert('Error', 'Hubo un problema enviando la receta');
       }
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -403,7 +478,7 @@ export const RecipeScreen = () => {
       { text: 'Sí', onPress: () => console.log('Volviendo…') },
     ]);
 
-  const handleAddIngredient = () => setIngredientes([...ingredientes, { nombre: '', cantidad: '', unidad: '' }]);
+  const handleAddIngredient = () => setIngredientes([...ingredientes, { nombre: '', cantidad: '', unidad: 'gr' }]);
 
   const handleIngredientChange = (i: number, field: keyof Ingrediente, v: string) => {
     const c = [...ingredientes];
@@ -512,15 +587,23 @@ export const RecipeScreen = () => {
 
           <ImagePickerSection photo={photo} onPick={handleAddImage} />
 
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveText}>Guardar Receta</Text>
+          <TouchableOpacity
+            style={[styles.saveButton, saving && styles.savingButton]}
+            onPress={handleSave}
+            disabled={saving}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color="#000" />
+            ) : (
+              <Text style={styles.saveText}>Guardar Receta</Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
 
         <Modal transparent visible={showOfflineModal} animationType="fade">
           <View style={styles.modalOverlay}>
             <View style={styles.modalBox}>
-              <Text style={styles.modalTitle}>No hay conexión a internet</Text>
+              <Text style={styles.offlineModalTitle}>No hay conexión a internet</Text>
               <Text style={styles.modalMsg}>
                 No hay conexión a internet. Tu receta se almacenará localmente y, cuando
                 haya conexión a internet, se volverá a subir y será visible para el público.
@@ -667,6 +750,17 @@ const styles = StyleSheet.create({
   },
   ingredientUnidad: {
     flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  unidadSelectorText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  dropdownArrow: {
+    fontSize: 10,
+    color: '#666',
   },
   removeButton: {
     marginLeft: 8,
@@ -713,39 +807,62 @@ const styles = StyleSheet.create({
     marginLeft: 50,
     marginRight: 50,
   },
+  savingButton: {
+    backgroundColor: '#DDD',
+  },
   saveText: { color: '#000', fontSize: 16, fontWeight: '600' },
 
-  /* Modal */
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalBox: {
-    width: '80%',
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 20,
-    borderWidth: 2,
-    borderColor: '#FFD740',
-  },
-  modalTitle: { fontSize: 18, fontWeight: '600', marginBottom: 12, textAlign: 'center' },
-  modalMsg: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 20,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  modalBtns: { flexDirection: 'row', justifyContent: 'space-between' },
-  modalBtn: {
-    flex: 1,
-    marginHorizontal: 4,
-    backgroundColor: '#FFD740',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalBtnText: { color: '#000', fontWeight: '600' },
+  // Estilos para modal de unidades
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.4)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    unitModalBox: {
+      width: '80%',
+      maxHeight: '70%',
+      backgroundColor: '#FFF',
+      borderRadius: 12,
+      padding: 20,
+      borderWidth: 2,
+      borderColor: '#FFD740',
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      marginBottom: 12,
+      textAlign: 'center'
+    },
+    unitList: {
+      maxHeight: 300,
+    },
+    unitOption: {
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: '#F0F0F0',
+    },
+    activeUnitOption: {
+      backgroundColor: '#FFD740',
+    },
+    unitOptionText: {
+      fontSize: 16,
+      color: '#333',
+    },
+    activeUnitOptionText: {
+      fontWeight: '600',
+      color: '#000',
+    },
+    closeButton: {
+      marginTop: 16,
+      backgroundColor: '#FFD740',
+      paddingVertical: 12,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    closeButtonText: {
+      color: '#000',
+      fontWeight: '600'
+    }
 });
