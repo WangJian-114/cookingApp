@@ -8,15 +8,18 @@ import {
   Dimensions,
   ActivityIndicator,
   Image,
-  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
+import {
+  DrawerActions,
+  CommonActions,
+  useNavigation,
+} from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import { IonIcon } from '../../components/shared/IonIcon';
 import { Header } from '../../components/shared/header/Header';
-
-import api from '../../../services/api'; // Asegúrate de que esta ruta sea correcta
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../../../services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -34,7 +37,6 @@ export const ProfileScreen = () => {
   const navigation = useNavigation();
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     navigation.setOptions({
@@ -49,33 +51,38 @@ export const ProfileScreen = () => {
         </Pressable>
       ),
     });
-
-    const fetchUserProfile = async () => {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const response = await api.get('/auth/profile');
-
-        // --- LOG CRUCIAL: Ver qué datos se reciben ---
-        console.log('Datos recibidos del perfil:', response.data);
-        // --- FIN LOG CRUCIAL ---
-
-        // Asegúrate de que la estructura de datos coincida con lo que el backend envía
-        // Tu backend envía directamente el objeto de usuario, no un { user: ... }
-        setUserData(response.data); // <--- CAMBIO AQUÍ: antes era response.data.user
-      } catch (err: any) {
-        console.error('Error fetching user profile:', err);
-        const errorMessage = err.response?.data?.message || err.message || 'Ocurrió un error desconocido al cargar tu perfil.';
-        setError(errorMessage);
-        Alert.alert('Error de Perfil', errorMessage);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchUserProfile();
   }, [navigation]);
+
+  const fetchUserProfile = async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/auth/profile');
+      setUserData(data);
+    } catch (err) {
+      console.warn('Error fetching profile', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      // Llamás al endpoint de logout (aunque no haga nada server-side, es tu convenio)
+      await api.post('/auth/logout');
+    } catch {
+      // ignoramos errores de backend
+    }
+    // Limpiás tokens y demás
+    await AsyncStorage.multiRemove(['ACCESS_TOKEN', 'REFRESH_TOKEN']);
+    // Reseteás al stack Auth en tu RootNavigator
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'Auth' as never }],
+      })
+    );
+  };
 
   if (loading) {
     return (
@@ -93,24 +100,6 @@ export const ProfileScreen = () => {
     );
   }
 
-  if (error && !userData) {
-    return (
-      <LinearGradient
-        colors={['rgba(233,163,0,0.9)', 'rgba(251,192,45,0.8)', 'rgba(255,255,255,0.6)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.gradient}
-      >
-        <SafeAreaView style={[styles.container, styles.centered]}>
-          <Text style={styles.errorText}>Error: {error}</Text>
-          <Pressable style={styles.button} onPress={() => { /* Considera añadir un botón de reintentar */ }}>
-            <Text style={styles.buttonText}>Volver a intentar</Text>
-          </Pressable>
-        </SafeAreaView>
-      </LinearGradient>
-    );
-  }
-
   return (
     <LinearGradient
       colors={['rgba(233,163,0,0.9)', 'rgba(251,192,45,0.8)', 'rgba(255,255,255,0.6)']}
@@ -120,7 +109,6 @@ export const ProfileScreen = () => {
     >
       <SafeAreaView style={styles.container}>
         <Header />
-        {/* Avatar y nombre de usuario */}
         <View style={styles.mainContainer}>
           <View style={styles.avatarSection}>
             {userData?.profile_picture ? (
@@ -131,28 +119,35 @@ export const ProfileScreen = () => {
             <Text style={styles.username}>{userData?.name || 'Cargando...'}</Text>
           </View>
 
-          {/* Campos de perfil */}
           <View style={styles.field}>
             <Text style={styles.label}>Nombre de Usuario</Text>
             <View style={styles.valueWrapper}>
-              <Text style={styles.value}>{userData?.name || 'N/A'}</Text>
+              <Text style={styles.value}>{userData?.name}</Text>
             </View>
           </View>
 
           <View style={styles.field}>
             <Text style={styles.label}>Email</Text>
             <View style={styles.valueWrapper}>
-              <Text style={styles.value}>{userData?.email || 'N/A'}</Text>
+              <Text style={styles.value}>{userData?.email}</Text>
             </View>
           </View>
 
-          {/* Botones */}
           <View style={styles.buttonsContainer}>
-            <Pressable style={styles.button}>
+            <Pressable
+              style={styles.button}
+              onPress={() =>
+                navigation.navigate('ResetPasswordScreen' as never, {
+                  email: userData!.email,
+                  token: '',
+                } as never)
+              }
+            >
               <Text style={styles.buttonText}>Reset Password</Text>
             </Pressable>
-            <Pressable style={styles.button}>
-              <Text style={styles.buttonText}>Cerrar Cuenta</Text>
+
+            <Pressable style={styles.button} onPress={handleLogout}>
+              <Text style={styles.buttonText}>Cerrar Sesión</Text>
             </Pressable>
           </View>
         </View>
@@ -162,70 +157,30 @@ export const ProfileScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  gradient: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#333',
-  },
-  errorText: {
-    fontSize: 16,
-    color: 'red',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  mainContainer: {
-    paddingHorizontal: 16,
-  },
-  avatarSection: {
-    alignItems: 'center',
-    marginTop: 24,
-  },
+  gradient: { flex: 1 },
+  container: { flex: 1 },
+  centered: { justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 10, fontSize: 16, color: '#333' },
+  mainContainer: { paddingHorizontal: 16 },
+  avatarSection: { alignItems: 'center', marginTop: 24 },
   profileImage: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    resizeMode: 'cover',
     borderWidth: 2,
     borderColor: '#E9A300',
   },
-  username: {
-    marginTop: 8,
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#333',
-  },
-  field: {
-    marginTop: 20,
-  },
-  label: {
-    fontSize: 14,
-    color: '#333',
-  },
+  username: { marginTop: 8, fontSize: 20, fontWeight: '600', color: '#333' },
+  field: { marginTop: 20 },
+  label: { fontSize: 14, color: '#333' },
   valueWrapper: {
     backgroundColor: 'rgba(255,215,64,0.7)',
     borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    padding: 12,
     marginTop: 4,
   },
-  value: {
-    fontSize: 16,
-    color: '#212121',
-  },
-  buttonsContainer: {
-    marginTop: 32,
-    alignItems: 'center',
-  },
+  value: { fontSize: 16, color: '#212121' },
+  buttonsContainer: { marginTop: 32, alignItems: 'center' },
   button: {
     backgroundColor: '#FFD740',
     borderRadius: 20,
@@ -234,9 +189,5 @@ const styles = StyleSheet.create({
     marginVertical: 8,
     elevation: 2,
   },
-  buttonText: {
-    color: '#333',
-    fontSize: 16,
-    fontWeight: '500',
-  },
+  buttonText: { color: '#333', fontSize: 16, fontWeight: '500' },
 });
