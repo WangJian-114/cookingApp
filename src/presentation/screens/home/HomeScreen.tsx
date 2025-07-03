@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react'
+// src/presentation/screens/home/HomeScreen.tsx
+import React, { useState, useCallback } from 'react'
 import {
   View,
   StyleSheet,
@@ -13,12 +14,15 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Searchbar } from 'react-native-paper'
-import { useNavigation } from '@react-navigation/native'
+import {
+  useNavigation,
+  useFocusEffect,
+} from '@react-navigation/native'
 import LinearGradient from 'react-native-linear-gradient'
 
+import api from '../../../services/api'
 import { IonIcon } from '../../components/shared/IonIcon'
 import { Header } from '../../components/shared/header/Header'
-import api from '../../../services/api'
 
 const placeholderImage = require('../../../assets/milanesacpure.png')
 
@@ -31,6 +35,10 @@ type Recipe = {
   rating: number
 }
 
+const { width } = Dimensions.get('window')
+const POP_CARD_WIDTH = (width - 32 - 12 * 2) / 3
+const ALL_CARD_WIDTH = (width - 32 - 8) / 2
+
 export const HomeScreen = () => {
   const navigation = useNavigation()
   const [searchQuery, setSearchQuery] = useState('')
@@ -40,7 +48,7 @@ export const HomeScreen = () => {
   const [allRecipes, setAllRecipes]       = useState<Recipe[]>([])
   const [favorites, setFavorites]         = useState<Set<string>>(new Set())
 
-  /** 1) Populares aleatorias */
+  // 1) Populares aleatorias
   const fetchPopular = async () => {
     try {
       const res = await api.get('/receta/populares')
@@ -56,7 +64,7 @@ export const HomeScreen = () => {
     }
   }
 
-  /** 2) Todas las recetas */
+  // 2) Todas las recetas
   const fetchAll = async () => {
     try {
       const res = await api.get('/receta/Allrecetas')
@@ -87,20 +95,20 @@ export const HomeScreen = () => {
     }
   }
 
-  /** 3) Favoritos del usuario */
+  // 3) Favoritos del usuario
   const fetchFavorites = async () => {
     try {
       const res = await api.get('/favs/misFavoritos')
-      console.log('▶️ favoritos raw:', res.data)
-      // Ahora el back devuelve un array de recetas, así que usamos su _id:
-      const favIds = new Set((res.data as Array<{ _id: string }>).map(r => r._id))
+      const favIds = new Set(
+        (res.data as Array<{ _id: string }>).map(r => r._id)
+      )
       setFavorites(favIds)
     } catch (err) {
       console.warn('❌ Error al cargar favoritos:', err)
     }
   }
 
-  /** 4) Toggle favorito */
+  // 4) Toggle favorito
   const toggleFavorite = async (recipeId: string) => {
     try {
       if (favorites.has(recipeId)) {
@@ -116,12 +124,12 @@ export const HomeScreen = () => {
     }
   }
 
-  useEffect(() => {
-    navigation.setOptions({ headerShown: false })
-    fetchPopular()
-    fetchAll()
-    fetchFavorites()
-  }, [navigation])
+  // Refetch cada vez que la pantalla recibe foco
+  useFocusEffect(
+    useCallback(() => {
+      Promise.all([fetchPopular(), fetchAll(), fetchFavorites()])
+    }, [])
+  )
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
@@ -139,9 +147,12 @@ export const HomeScreen = () => {
   const renderPopular = ({ item }: { item: PopularRecipe }) => (
     <Pressable
       style={styles.popularCard}
-      onPress={() => navigateToDetails(item.id)}
-    >
-      <Image source={item.image} style={styles.popularImage} resizeMode="cover" />
+      onPress={() => navigateToDetails(item.id)}>
+      <Image
+        source={item.image}
+        style={styles.popularImage}
+        resizeMode="cover"
+      />
     </Pressable>
   )
 
@@ -150,8 +161,7 @@ export const HomeScreen = () => {
     return (
       <Pressable
         style={styles.recipeCard}
-        onPress={() => navigateToDetails(item.id)}
-      >
+        onPress={() => navigateToDetails(item.id)}>
         <Image source={item.image} style={styles.recipeImage} />
         <View style={styles.ratingBadge}>
           <IonIcon name="star" size={12} color="#FFD700" />
@@ -165,9 +175,12 @@ export const HomeScreen = () => {
         </View>
         <Pressable
           style={styles.favoriteButton}
-          onPress={() => toggleFavorite(item.id)}
-        >
-          <IonIcon name={isFav ? 'heart' : 'heart-outline'} size={20} color="#fff" />
+          onPress={() => toggleFavorite(item.id)}>
+          <IonIcon
+            name={isFav ? 'heart' : 'heart-outline'}
+            size={20}
+            color="#fff"
+          />
         </Pressable>
       </Pressable>
     )
@@ -178,8 +191,7 @@ export const HomeScreen = () => {
       colors={['rgba(233,163,0,0.9)', 'rgba(251,192,45,0.8)', 'rgba(255,255,255,0.6)']}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
-      style={styles.gradientContainer}
-    >
+      style={styles.gradientContainer}>
       <SafeAreaView style={styles.container}>
         <Header />
 
@@ -189,20 +201,19 @@ export const HomeScreen = () => {
             colors={['#FFFFFF', '#FFD740']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
-            style={styles.searchGradient}
-          >
+            style={styles.searchGradient}>
             <Searchbar
               placeholder="Buscar receta"
               onChangeText={setSearchQuery}
               value={searchQuery}
               style={styles.searchbar}
               inputStyle={styles.searchbarInput}
-               icon={({ size, color }) => (
-                  <IonIcon name="search-outline" size={size} color={color} />
-                )}
-                clearIcon={({ size, color }) => (
-                  <IonIcon name="close-circle-outline" size={size} color={color} />
-                )}
+              icon={({ size, color }) => (
+                <IonIcon name="search-outline" size={size} color={color} />
+              )}
+              clearIcon={({ size, color }) => (
+                <IonIcon name="close-circle-outline" size={size} color={color} />
+              )}
             />
           </LinearGradient>
           <Pressable style={styles.filterButton}>
@@ -240,10 +251,6 @@ export const HomeScreen = () => {
   )
 }
 
-const { width } = Dimensions.get('window')
-const POP_CARD_WIDTH = (width - 32 - 12 * 2) / 3
-const ALL_CARD_WIDTH = (width - 32 - 8) / 2
-
 const styles = StyleSheet.create({
   gradientContainer: { flex: 1 },
   container: { flex: 1 },
@@ -276,12 +283,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     overflow: 'hidden',
     marginBottom: 40,
-
   },
   popularImage: {
-      width: POP_CARD_WIDTH,
-      height: '100%',
-       },
+    width: POP_CARD_WIDTH,
+    height: '100%',
+  },
   allList: { paddingHorizontal: 16, paddingBottom: 16 },
   allColumnWrapper: { justifyContent: 'space-between', marginBottom: 12 },
   recipeCard: {

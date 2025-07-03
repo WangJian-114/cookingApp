@@ -1,5 +1,5 @@
-// src/screens/favorite/FavoriteScreen.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react'
+import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import {
   View,
   StyleSheet,
@@ -10,77 +10,122 @@ import {
   Image,
   ImageSourcePropType,
   RefreshControl,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Searchbar } from 'react-native-paper';
-import { useNavigation } from '@react-navigation/native';
-import LinearGradient from 'react-native-linear-gradient';
-import { IonIcon } from '../../components/shared/IonIcon';
-import { Header } from '../../components/shared/header/Header';
+  Alert,
+} from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { Searchbar } from 'react-native-paper'
+import LinearGradient from 'react-native-linear-gradient'
 
-const sampleImage: ImageSourcePropType = require('../../../assets/milanesacpure.png');
+import api from '../../../services/api'
+import { IonIcon } from '../../components/shared/IonIcon'
+import { Header } from '../../components/shared/header/Header'
 
 type Recipe = {
-  id: string;
-  title: string;
-  description: string;
-  image: ImageSourcePropType;
-  rating: number;
-  isFavorite: boolean;
-};
+  id: string
+  title: string
+  description: string
+  image: ImageSourcePropType
+  rating: number
+}
 
-const allRecipesMock: Recipe[] = [
-  { id: '1', title: 'Guiso de Lentejas',  description: 'Un reconfortante guiso de lentejas…', image: sampleImage, rating: 4.5, isFavorite: false },
-  { id: '2', title: 'Sopa de Calabaza',    description: 'Sopa cremosa de calabaza…',             image: sampleImage, rating: 4.2, isFavorite: true  },
-  { id: '3', title: 'Pastel de Papa',      description: 'Capas de papa y queso al horno…',      image: sampleImage, rating: 4.8, isFavorite: false },
-  { id: '4', title: 'Albóndigas en Salsa', description: 'Albóndigas en salsa de tomate…',        image: sampleImage, rating: 4.7, isFavorite: true  },
-];
-
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = width - 32;
+const placeholderImage = require('../../../assets/milanesacpure.png')
+const CARD_WIDTH = Dimensions.get('window').width - 32
 
 export const FavoriteScreen = () => {
-  const navigation = useNavigation();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
+  const navigation = useNavigation()
+  const [searchQuery, setSearchQuery] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
+  const [recipes, setRecipes] = useState<Recipe[]>([])
+
+  // 1) Traer favoritos
+  const fetchFavorites = async () => {
+    try {
+      const res = await api.get('/favs/misFavoritos')
+      const raw = res.data as Array<{
+        _id: string
+        titulo: string
+        descripcion: string
+        imagen?: string | null
+        valoraciones?: Array<{ rating: number }>
+      }>
+
+      const mapped = raw.map(r => {
+        const vals = r.valoraciones ?? []
+        const avg = vals.length
+          ? vals.reduce((s, v) => s + v.rating, 0) / vals.length
+          : 0
+
+        return {
+          id: r._id,
+          title: r.titulo,
+          description: r.descripcion,
+          image: r.imagen ? { uri: r.imagen } : placeholderImage,
+          rating: avg,
+        }
+      })
+
+      setRecipes(mapped)
+    } catch (err) {
+      console.warn('❌ Error al cargar favoritos:', err)
+    }
+  }
+
+  // 2) Cargar cada vez que la pantalla recibe foco
+  useFocusEffect(
+    useCallback(() => {
+      fetchFavorites()
+    }, [])
+  )
+
+  // 3) Pull-to-refresh
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await fetchFavorites()
+    setRefreshing(false)
+  }, [])
+
+  // 4) Eliminar de favoritos al apretar el corazón
+  const handleRemoveFavorite = async (id: string) => {
+    try {
+      await api.delete(`/favs/borrar/${id}`)
+      // recarga la lista
+      fetchFavorites()
+    } catch (err: any) {
+      Alert.alert('Error', err.response?.data?.message || err.message)
+    }
+  }
 
   useEffect(() => {
-    navigation.setOptions({
-      headerShown: false,
-    });
-  }, [navigation]);
+    navigation.setOptions({ headerShown: false })
+  }, [navigation])
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
-  }, []);
-
-  const navigateToDetails = (recipeId: string) => {
-    navigation.navigate('DetailsScreen', { recipeId });
-  };
-
-  const favoriteRecipes = allRecipesMock.filter(r => r.isFavorite);
-
-  const filtered = favoriteRecipes.filter(r =>
+  // filtro local por búsqueda
+  const filtered = recipes.filter(r =>
     r.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  )
 
   const renderItem = ({ item }: { item: Recipe }) => (
-    <Pressable style={styles.recipeCard} onPress={() => navigateToDetails(item.id)}>
+    <Pressable
+      style={styles.recipeCard}
+      onPress={() =>
+        navigation.navigate('DetailsScreen' as never, { recipeId: item.id } as never)
+      }
+    >
       <Image source={item.image} style={styles.recipeImage} />
-
       <View style={styles.recipeInfo}>
         <Text style={styles.recipeTitle}>{item.title}</Text>
         <Text style={styles.recipeDesc} numberOfLines={3}>
           {item.description}
         </Text>
       </View>
-
-      <Pressable style={styles.favoriteButton}>
+      <Pressable
+        style={styles.favoriteButton}
+        onPress={() => handleRemoveFavorite(item.id)}
+      >
         <IonIcon name="heart" size={20} color="#fff" />
       </Pressable>
     </Pressable>
-  );
+  )
 
   return (
     <LinearGradient
@@ -91,6 +136,8 @@ export const FavoriteScreen = () => {
     >
       <SafeAreaView style={styles.container}>
         <Header />
+
+        {/* Search */}
         <View style={styles.searchContainer}>
           <LinearGradient
             colors={['#FFFFFF', '#FFD740']}
@@ -123,12 +170,10 @@ export const FavoriteScreen = () => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContainer}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
             <Text style={styles.emptyText}>
-              {favoriteRecipes.length === 0
+              {recipes.length === 0
                 ? 'Aún no tienes recetas favoritas.'
                 : 'No encontramos coincidencias.'}
             </Text>
@@ -136,8 +181,8 @@ export const FavoriteScreen = () => {
         />
       </SafeAreaView>
     </LinearGradient>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   gradientContainer: { flex: 1 },
@@ -190,16 +235,6 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   recipeImage: { width: '100%', height: CARD_WIDTH * 0.3 },
-  ratingBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    borderRadius: 8,
-    paddingHorizontal: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   recipeInfo: { padding: 8 },
   recipeTitle: { fontSize: 14, marginBottom: 4 },
   recipeDesc: { fontSize: 12, color: '#333', lineHeight: 16 },
@@ -216,4 +251,4 @@ const styles = StyleSheet.create({
     marginTop: 32,
     color: '#666',
   },
-});
+})
