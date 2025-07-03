@@ -1,8 +1,18 @@
 // src/presentation/screens/details/DetailsScreen.tsx
 
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Alert, Pressable, ImageSourcePropType } from 'react-native'; // Se añade ImageSourcePropType
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  Pressable,
+  ActivityIndicator
+} from 'react-native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import LinearGradient from 'react-native-linear-gradient';
@@ -10,57 +20,149 @@ import LinearGradient from 'react-native-linear-gradient';
 import { ServingsSelector } from '../../components/shared/details/ServingsSelector';
 import { RatingModal } from '../../components/shared/details/RatingModal';
 import { CommentsSheet } from '../../components/shared/details/CommentsSheet';
+import api from '../../../services/api';
 
-const popularImage: ImageSourcePropType = require('../../../assets/milanesacpure.png');
-const mockRecipe = {
-  id: '1',
-  title: 'Locro Cremoso Tradicional',
-  image: popularImage,
-  description: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book.',
-  baseServings: 4,
-  likes: 300,
-  ingredients: [
-    { name: 'Maíz blanco partido', quantity: 500, unit: 'g' },
-    { name: 'Porotos (alubias)', quantity: 250, unit: 'g' },
-    { name: 'Zapallo criollo o plomo', quantity: 1, unit: 'kg (aprox)' },
-    { name: 'Carne de cerdo', quantity: 500, unit: 'g' },
-    { name: 'Chorizo colorado', quantity: 2, unit: 'un.' },
-    { name: 'Panceta salada o ahumada', quantity: 200, unit: 'g' },
-    { name: 'Falda o roast beef de vaca', quantity: 500, unit: 'g' },
-    { name: 'Cuerito de cerdo', quantity: 100, unit: 'g (opcional)' },
-  ],
-  comments: [
-      { id: 'c1', user: 'juan2023', text: '¡Excelente receta! Me salió igualita.' },
-      { id: 'c2', user: 'cocinera_pro', text: 'Un consejo: remojar el maíz la noche anterior hace toda la diferencia.' },
-  ],
-  rating: {
-      average: 4.5,
-      count: 230,
-      distribution: { '5': 173, '4': 22, '3': 13, '2': 6, '1': 16 },
-    }
+// Define la interfaz para los parámetros de ruta
+type RootStackParamList = {
+  DetailsScreen: { recipeId: string };
+  // Agrega otras rutas si es necesario
 };
+
+// Define la interfaz para la estructura de la receta que esperamos del backend
+interface RecipeDetails {
+  _id: string; // El ID de la receta
+  titulo: string;
+  descripcion: string;
+  instrucciones: string;
+  tiempo_preparacion?: number;
+  dificultad?: 'Fácil' | 'Media' | 'Difícil';
+  fecha_creacion: string;
+  imagen?: string; // URL de la imagen
+  autor_id: string; // O una interfaz más detallada si se popula
+  porciones?: number;
+  ingredientes: Array<{
+    nombre: string;
+    cantidad: number;
+    unidad: string;
+  }>;
+  valoraciones?: Array<{
+    _id: string; // ID de la valoración
+    rating: number; // El valor de la calificación
+    // Otros campos de valoración si los necesitas
+  }>;
+  likes?: number; // Asumo que el backend puede devolver esto, si no, se calculará en el frontend
+  comments?: Array<{ // Asumo que el backend puede devolver esto, si no, se manejará de otra forma
+    id: string;
+    user: string;
+    text: string;
+  }>;
+}
 
 const TEXT_COLOR = '#44403C';
 const CONTENT_BG_COLOR = '#FEFBF6';
 const PRIMARY_YELLOW = '#E9A300';
+const placeholderImage = require('../../../assets/milanesacpure.png'); // Imagen de fallback
 
 export const DetailsScreen = () => {
   const navigation = useNavigation();
-  const [recipe] = useState(mockRecipe);
+  const route = useRoute<RouteProp<RootStackParamList, 'DetailsScreen'>>(); // Hook para acceder a los parámetros de la ruta
+  const { recipeId } = route.params; // Obtenemos el recipeId de los parámetros
+
+  const [recipe, setRecipe] = useState<RecipeDetails | null>(null); // Estado para la receta real
+  const [loading, setLoading] = useState(true); // Estado de carga
+  const [error, setError] = useState<string | null>(null); // Estado de error
+
   const [servings, setServings] = useState(1);
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(false); // Esto necesitará lógica de backend para persistir
 
   const [isServingsVisible, setServingsVisible] = useState(false);
   const [isRatingVisible, setRatingVisible] = useState(false);
   const commentsSheetRef = useRef<BottomSheetModal>(null);
 
+  useEffect(() => {
+    const fetchRecipeDetails = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // --- CAMBIO CLAVE AQUÍ: 'receta' en lugar de 'recetas' ---
+        const response = await api.get(`/receta/getRecetaById/${recipeId}`);
+
+        console.log('Datos recibidos de la receta:', response.data);
+
+        let averageRating = 0;
+        let ratingCount = 0;
+        if (response.data.valoraciones && response.data.valoraciones.length > 0) {
+          const totalRating = response.data.valoraciones.reduce((sum: number, val: { rating: number }) => sum + val.rating, 0);
+          averageRating = totalRating / response.data.valoraciones.length;
+          ratingCount = response.data.valoraciones.length;
+        }
+
+        setRecipe({
+          ...response.data,
+          rating: {
+            average: averageRating,
+            count: ratingCount,
+            distribution: {}
+          }
+        });
+        setServings(response.data.porciones || 1);
+      } catch (err: any) {
+        console.error('Error fetching recipe details:', err);
+        const errorMessage = err.response?.data?.message || err.message || 'Error al cargar los detalles de la receta.';
+        setError(errorMessage);
+        Alert.alert('Error', errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (recipeId) {
+      fetchRecipeDetails();
+    } else {
+      setError('ID de receta no proporcionado.');
+      setLoading(false);
+    }
+  }, [recipeId]);
+
   const handleOpenComments = () => commentsSheetRef.current?.present();
 
-  const getAdjustedIngredient = (ingredient) => {
-    const factor = servings / recipe.baseServings;
-    const newQuantity = ingredient.quantity * factor;
+  const getAdjustedIngredient = (ingredient: { nombre: string; cantidad: number; unit: string }) => {
+    if (!recipe || !recipe.porciones) return `${ingredient.cantidad} ${ingredient.unit}`;
+    const factor = servings / recipe.porciones;
+    const newQuantity = ingredient.cantidad * factor;
     return `${Math.round(newQuantity * 100) / 100} ${ingredient.unit}`;
   };
+
+  if (loading) {
+    return (
+      <LinearGradient colors={[PRIMARY_YELLOW, PRIMARY_YELLOW]} style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={TEXT_COLOR} />
+        <Text style={styles.loadingText}>Cargando receta...</Text>
+      </LinearGradient>
+    );
+  }
+
+  if (error) {
+    return (
+      <LinearGradient colors={[PRIMARY_YELLOW, PRIMARY_YELLOW]} style={styles.loadingContainer}>
+        <Text style={styles.errorText}>Error: {error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.retryButtonText}>Volver</Text>
+        </TouchableOpacity>
+      </LinearGradient>
+    );
+  }
+
+  if (!recipe) {
+    return (
+      <LinearGradient colors={[PRIMARY_YELLOW, PRIMARY_YELLOW]} style={styles.loadingContainer}>
+        <Text style={styles.errorText}>No se encontró la receta.</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.retryButtonText}>Volver</Text>
+        </TouchableOpacity>
+      </LinearGradient>
+    );
+  }
 
   return (
     <LinearGradient colors={[PRIMARY_YELLOW, PRIMARY_YELLOW]} style={{ flex: 1 }}>
@@ -75,7 +177,7 @@ export const DetailsScreen = () => {
       </View>
 
       <ScrollView style={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-        <Image source={recipe.image} style={styles.image} />
+        <Image source={recipe.imagen ? { uri: recipe.imagen } : placeholderImage} style={styles.image} />
 
         <LinearGradient
           colors={[PRIMARY_YELLOW, CONTENT_BG_COLOR, CONTENT_BG_COLOR]}
@@ -85,7 +187,9 @@ export const DetailsScreen = () => {
           <View style={styles.infoBarContainer}>
             <TouchableOpacity style={styles.infoBarItem} onPress={() => setRatingVisible(true)}>
               <Icon name="star" color="#FFC700" size={18} />
-              <Text style={styles.infoBarText}>{recipe.rating.average.toFixed(1)} ({recipe.rating.count})</Text>
+              <Text style={styles.infoBarText}>
+                {recipe.rating.average.toFixed(1)} ({recipe.rating.count})
+              </Text>
             </TouchableOpacity>
             <View style={styles.infoBarItem}>
               <Icon name="heart" color="red" size={18} />
@@ -93,20 +197,23 @@ export const DetailsScreen = () => {
             </View>
             <TouchableOpacity style={styles.infoBarItem} onPress={handleOpenComments}>
               <Icon name="chatbubble-ellipses-outline" color="#888" size={18} />
-              <Text style={styles.infoBarText}>{recipe.comments.length}</Text>
+              <Text style={styles.infoBarText}>{recipe.comments?.length || 0}</Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.title}>{recipe.title}</Text>
+          <Text style={styles.title}>{recipe.titulo}</Text>
 
           <View style={styles.separator} />
 
           <Text style={styles.sectionTitle}>Descripción</Text>
-          <Text style={styles.description}>{recipe.description}</Text>
+          <Text style={styles.description}>{recipe.descripcion}</Text>
+
+          <Text style={styles.sectionTitle}>Instrucciones</Text>
+          <Text style={styles.description}>{recipe.instrucciones || 'No hay instrucciones disponibles.'}</Text>
 
           <Text style={styles.sectionTitle}>Ingredientes</Text>
-          {recipe.ingredients.map((ingredient, index) => (
-            <Text key={index} style={styles.ingredientText}>• {ingredient.name} - {getAdjustedIngredient(ingredient)}</Text>
+          {recipe.ingredientes.map((ingredient, index) => (
+            <Text key={index} style={styles.ingredientText}>• {ingredient.nombre} - {getAdjustedIngredient(ingredient)}</Text>
           ))}
 
           <View style={styles.separator} />
@@ -118,7 +225,7 @@ export const DetailsScreen = () => {
           </Pressable>
 
           <TouchableOpacity style={styles.commentsButton} onPress={handleOpenComments}>
-            <Text style={styles.commentsButtonText}>Comentarios ({recipe.comments.length})</Text>
+            <Text style={styles.commentsButtonText}>Comentarios ({recipe.comments?.length || 0})</Text>
           </TouchableOpacity>
         </LinearGradient>
       </ScrollView>
@@ -128,6 +235,7 @@ export const DetailsScreen = () => {
         isVisible={isServingsVisible}
         onClose={() => setServingsVisible(false)}
         onSelect={setServings}
+        baseServings={recipe.porciones || 1}
       />
       <RatingModal
           isVisible={isRatingVisible}
@@ -137,7 +245,7 @@ export const DetailsScreen = () => {
       />
       <CommentsSheet
         ref={commentsSheetRef}
-        comments={recipe.comments}
+        comments={recipe.comments || []}
         onSubmit={(comment) => console.log(comment)}
       />
     </LinearGradient>
@@ -226,5 +334,33 @@ const styles = StyleSheet.create({
         shadowRadius: 4,
         elevation: 3,
   },
-  commentsButtonText: { color: TEXT_COLOR, fontWeight: 'bold', fontSize: 16 }
+  commentsButtonText: { color: TEXT_COLOR, fontWeight: 'bold', fontSize: 16 },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 18,
+    color: TEXT_COLOR,
+  },
+  errorText: {
+    fontSize: 18,
+    color: 'red',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: '#FFD740',
+    borderRadius: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    marginTop: 20,
+  },
+  retryButtonText: {
+    color: TEXT_COLOR,
+    fontSize: 16,
+    fontWeight: '500',
+  },
 });
