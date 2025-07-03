@@ -1,4 +1,3 @@
-// src/screens/profile/ChangePasswordScreen.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -11,6 +10,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -42,9 +42,9 @@ export const ChangePasswordScreen = () => {
 
   const handleAccept = async () => {
     // validar campos vacíos
-    const isCurrEmpty   = currentPass.trim() === '';
-    const isNewEmpty    = newPass.trim() === '';
-    const isConfirmEmpty= confirmPass.trim() === '';
+    const isCurrEmpty    = currentPass.trim() === '';
+    const isNewEmpty     = newPass.trim() === '';
+    const isConfirmEmpty = confirmPass.trim() === '';
 
     setErrCurrent(isCurrEmpty);
     setErrNew(isNewEmpty);
@@ -63,10 +63,9 @@ export const ChangePasswordScreen = () => {
 
     setLoading(true);
     try {
-      await api.post('/auth/password/reset', {
+      await api.post('/auth/password/change', {
         currentPassword: currentPass,
         newPassword: newPass,
-
       });
       Alert.alert('Éxito', 'Contraseña actualizada correctamente.', [
         { text: 'OK', onPress: () => navigation.goBack() }
@@ -175,6 +174,7 @@ export const ChangePasswordScreen = () => {
             <Pressable
               style={[styles.button, styles.cancelButton]}
               onPress={handleCancel}
+              disabled={loading}
             >
               <Text style={styles.cancelText}>Cancelar</Text>
             </Pressable>
@@ -183,9 +183,10 @@ export const ChangePasswordScreen = () => {
               onPress={handleAccept}
               disabled={loading}
             >
-              <Text style={styles.acceptText}>
-                {loading ? '...' : 'Aceptar'}
-              </Text>
+              {loading
+                ? <ActivityIndicator color="#333" />
+                : <Text style={styles.acceptText}>Aceptar</Text>
+              }
             </Pressable>
           </View>
         </KeyboardAvoidingView>
