@@ -7,6 +7,7 @@ import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { ProfileScreen } from '../screens/profile/ProfileScreen';
+import { ChangePasswordScreen } from '../screens/profile/ChangePasswordScreen';
 import { RecipesStackNavigator } from './RecipesStackNavigator';
 import { DetailsScreen } from '../screens/details/DetailsScreen';
 import { IonIcon } from '../components/shared/IonIcon';
@@ -67,11 +68,7 @@ const SideMenuNavigator = () => {
 export const AppNavigator = () => {
   return (
     <BottomSheetModalProvider>
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen
           name="MainApp"
           component={SideMenuNavigator}
@@ -80,11 +77,18 @@ export const AppNavigator = () => {
           name="DetailsScreen"
           component={DetailsScreen}
           options={{
-              headerShown: false,
-              title: 'Detalle de la Receta',
-              presentation: 'modal',
+            presentation: 'modal',
+            headerShown: false,
           }}
         />
+       <Stack.Screen
+         name="ChangePasswordScreen"
+         component={ChangePasswordScreen}
+         options={{
+           presentation: 'modal',
+          headerShown: false,
+         }}
+     />
       </Stack.Navigator>
     </BottomSheetModalProvider>
   );

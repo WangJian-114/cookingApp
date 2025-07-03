@@ -68,14 +68,11 @@ export const ProfileScreen = () => {
 
   const handleLogout = async () => {
     try {
-      // Llamás al endpoint de logout (aunque no haga nada server-side, es tu convenio)
       await api.post('/auth/logout');
     } catch {
-      // ignoramos errores de backend
+      // ignoramos errores
     }
-    // Limpiás tokens y demás
     await AsyncStorage.multiRemove(['ACCESS_TOKEN', 'REFRESH_TOKEN']);
-    // Reseteás al stack Auth en tu RootNavigator
     navigation.dispatch(
       CommonActions.reset({
         index: 0,
@@ -112,7 +109,10 @@ export const ProfileScreen = () => {
         <View style={styles.mainContainer}>
           <View style={styles.avatarSection}>
             {userData?.profile_picture ? (
-              <Image source={{ uri: userData.profile_picture }} style={styles.profileImage} />
+              <Image
+                source={{ uri: userData.profile_picture }}
+                style={styles.profileImage}
+              />
             ) : (
               <IonIcon name="person-circle-outline" size={80} color="#333" />
             )}
@@ -136,12 +136,10 @@ export const ProfileScreen = () => {
           <View style={styles.buttonsContainer}>
             <Pressable
               style={styles.button}
-              onPress={() =>
-                navigation.navigate('ResetPasswordScreen' as never, {
-                  email: userData!.email,
-                  token: '',
-                } as never)
-              }
+              onPress={() => {
+                // Navega al Stack padre donde está ChangePasswordScreen
+                navigation.getParent()?.navigate('ChangePasswordScreen' as never);
+              }}
             >
               <Text style={styles.buttonText}>Reset Password</Text>
             </Pressable>
