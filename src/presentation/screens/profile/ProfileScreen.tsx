@@ -141,11 +141,11 @@ export const ProfileScreen = () => {
                 navigation.getParent()?.navigate('ChangePasswordScreen' as never);
               }}
             >
-              <Text style={styles.buttonText}>Reset Password</Text>
+              <Text style={styles.buttonText}>Cambiar la contraseña</Text>
             </Pressable>
 
             <Pressable style={styles.button} onPress={handleLogout}>
-              <Text style={styles.buttonText}>Cerrar Sesión</Text>
+              <Text style={styles.buttonText}>Cerrar sesión</Text>
             </Pressable>
           </View>
         </View>
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   field: { marginTop: 20 },
   label: { fontSize: 14, color: '#333' },
   valueWrapper: {
-    backgroundColor: 'rgba(255,215,64,0.7)',
+    backgroundColor: 'rgba(255,255,255,0.6)',
     borderRadius: 8,
     padding: 12,
     marginTop: 4,
