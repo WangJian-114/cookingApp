@@ -14,123 +14,110 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { BottomSheetModal } from '@gorhom/bottom-sheet';
 import LinearGradient from 'react-native-linear-gradient';
 
 import { ServingsSelector } from '../../components/shared/details/ServingsSelector';
-import { RatingModal } from '../../components/shared/details/RatingModal';
-import { CommentsSheet } from '../../components/shared/details/CommentsSheet';
+import { RatingModal }    from '../../components/shared/details/RatingModal';
+import { CommentsSheet }  from '../../components/shared/details/CommentsSheet';
 import api from '../../../services/api';
 
-// Define la interfaz para los parámetros de ruta
+// Parámetros de navegación
 type RootStackParamList = {
   DetailsScreen: { recipeId: string };
-  // Agrega otras rutas si es necesario
 };
 
-// Define la interfaz para la estructura de la receta que esperamos del backend
+// Estructura de la receta que trae el backend
 interface RecipeDetails {
-  _id: string; // El ID de la receta
+  _id: string;
   titulo: string;
   descripcion: string;
   instrucciones: string;
   tiempo_preparacion?: number;
   dificultad?: 'Fácil' | 'Media' | 'Difícil';
   fecha_creacion: string;
-  imagen?: string; // URL de la imagen
-  autor_id: string; // O una interfaz más detallada si se popula
+  imagen?: string;
+  autor_id: string;
   porciones?: number;
   ingredientes: Array<{
     nombre: string;
     cantidad: number;
     unidad: string;
   }>;
-  valoraciones?: Array<{
-    _id: string; // ID de la valoración
-    rating: number; // El valor de la calificación
-    // Otros campos de valoración si los necesitas
-  }>;
-  likes?: number; // Asumo que el backend puede devolver esto, si no, se calculará en el frontend
-  comments?: Array<{ // Asumo que el backend puede devolver esto, si no, se manejará de otra forma
-    id: string;
-    user: string;
-    text: string;
-  }>;
+  valoraciones?: Array<{ rating: number }>;
+  likes?: number;
+  // Notar: aquí no incluimos comments; los manejamos en un estado separado
 }
-
-const TEXT_COLOR = '#44403C';
-const CONTENT_BG_COLOR = '#FEFBF6';
-const PRIMARY_YELLOW = '#E9A300';
-const placeholderImage = require('../../../assets/milanesacpure.png'); // Imagen de fallback
 
 export const DetailsScreen = () => {
   const navigation = useNavigation();
-  const route = useRoute<RouteProp<RootStackParamList, 'DetailsScreen'>>(); // Hook para acceder a los parámetros de la ruta
-  const { recipeId } = route.params; // Obtenemos el recipeId de los parámetros
+  const route = useRoute<RouteProp<RootStackParamList, 'DetailsScreen'>>();
+  const { recipeId } = route.params;
 
-  const [recipe, setRecipe] = useState<RecipeDetails | null>(null); // Estado para la receta real
-  const [loading, setLoading] = useState(true); // Estado de carga
-  const [error, setError] = useState<string | null>(null); // Estado de error
+  const [recipe, setRecipe] = useState<RecipeDetails | null>(null);
+  const [comments, setComments] = useState<Array<{ id: string; user: string; text: string }>>([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState<string | null>(null);
 
-  const [servings, setServings] = useState(1);
-  const [isLiked, setIsLiked] = useState(false); // Esto necesitará lógica de backend para persistir
-
+  const [servings, setServings]           = useState(1);
+  const [isLiked, setIsLiked]             = useState(false);
   const [isServingsVisible, setServingsVisible] = useState(false);
-  const [isRatingVisible, setRatingVisible] = useState(false);
-  const commentsSheetRef = useRef<BottomSheetModal>(null);
+  const [isRatingVisible, setRatingVisible]     = useState(false);
+
+  const commentsSheetRef = useRef<any>(null);
 
   useEffect(() => {
-    const fetchRecipeDetails = async () => {
+    const fetchData = async () => {
       setLoading(true);
       setError(null);
       try {
-        // --- CAMBIO CLAVE AQUÍ: 'receta' en lugar de 'recetas' ---
-        const response = await api.get(`/receta/getRecetaById/${recipeId}`);
+        // 1) Obtener detalle de la receta
+        const recRes = await api.get(`/receta/getRecetaById/${recipeId}`);
+        const data = recRes.data;
 
-        console.log('Datos recibidos de la receta:', response.data);
-
-        let averageRating = 0;
-        let ratingCount = 0;
-        if (response.data.valoraciones && response.data.valoraciones.length > 0) {
-          const totalRating = response.data.valoraciones.reduce((sum: number, val: { rating: number }) => sum + val.rating, 0);
-          averageRating = totalRating / response.data.valoraciones.length;
-          ratingCount = response.data.valoraciones.length;
+        // 2) Calcular rating localmente si lo necesitas
+        let avg = 0, cnt = 0;
+        if (Array.isArray(data.valoraciones) && data.valoraciones.length > 0) {
+          cnt = data.valoraciones.length;
+          avg = data.valoraciones.reduce((sum: number, v: any) => sum + v.rating, 0) / cnt;
         }
 
+        // 3) Traer comentarios del backend
+        const comRes = await api.get(`/comentarios/${recipeId}/comments`);
+        const mapped = comRes.data.comments.map((c: any) => ({
+          id:   c.id,
+          user: c.usuario,
+          text: c.texto,
+          avatar: c.profile_picture
+        }));
+
+        // 4) Actualizar estados
         setRecipe({
-          ...response.data,
-          rating: {
-            average: averageRating,
-            count: ratingCount,
-            distribution: {}
-          }
+          ...data,
+          valoraciones: [{ rating: avg }],
+          likes: data.likes
         });
-        setServings(response.data.porciones || 1);
-      } catch (err: any) {
-        console.error('Error fetching recipe details:', err);
-        const errorMessage = err.response?.data?.message || err.message || 'Error al cargar los detalles de la receta.';
-        setError(errorMessage);
-        Alert.alert('Error', errorMessage);
+        setComments(mapped);
+        setServings(data.porciones || 1);
+      } catch (e: any) {
+        console.error('Error fetching details or comments:', e);
+        const msg = e.response?.data?.msg || e.message || 'Error al cargar la receta.';
+        setError(msg);
+        Alert.alert('Error', msg);
       } finally {
         setLoading(false);
       }
     };
 
     if (recipeId) {
-      fetchRecipeDetails();
+      fetchData();
     } else {
       setError('ID de receta no proporcionado.');
       setLoading(false);
     }
   }, [recipeId]);
 
-  const handleOpenComments = () => commentsSheetRef.current?.present();
-
-  const getAdjustedIngredient = (ingredient: { nombre: string; cantidad: number; unit: string }) => {
-    if (!recipe || !recipe.porciones) return `${ingredient.cantidad} ${ingredient.unit}`;
-    const factor = servings / recipe.porciones;
-    const newQuantity = ingredient.cantidad * factor;
-    return `${Math.round(newQuantity * 100) / 100} ${ingredient.unit}`;
+  const handleOpenComments = () => {
+    commentsSheetRef.current?.present();
   };
 
   if (loading) {
@@ -142,21 +129,10 @@ export const DetailsScreen = () => {
     );
   }
 
-  if (error) {
+  if (error || !recipe) {
     return (
       <LinearGradient colors={[PRIMARY_YELLOW, PRIMARY_YELLOW]} style={styles.loadingContainer}>
-        <Text style={styles.errorText}>Error: {error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.retryButtonText}>Volver</Text>
-        </TouchableOpacity>
-      </LinearGradient>
-    );
-  }
-
-  if (!recipe) {
-    return (
-      <LinearGradient colors={[PRIMARY_YELLOW, PRIMARY_YELLOW]} style={styles.loadingContainer}>
-        <Text style={styles.errorText}>No se encontró la receta.</Text>
+        <Text style={styles.errorText}>Error: {error || 'Receta no encontrada.'}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={() => navigation.goBack()}>
           <Text style={styles.retryButtonText}>Volver</Text>
         </TouchableOpacity>
@@ -166,58 +142,73 @@ export const DetailsScreen = () => {
 
   return (
     <LinearGradient colors={[PRIMARY_YELLOW, PRIMARY_YELLOW]} style={{ flex: 1 }}>
+      {/* Header */}
       <View style={styles.headerContainer}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
           <Icon name="arrow-back-outline" size={28} color={TEXT_COLOR} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Detalle</Text>
         <TouchableOpacity onPress={() => setIsLiked(!isLiked)} style={styles.headerButton}>
-          <Icon name={isLiked ? "heart" : "heart-outline"} size={28} color={isLiked ? 'red' : TEXT_COLOR} />
+          <Icon name={isLiked ? 'heart' : 'heart-outline'} size={28} color={isLiked ? 'red' : TEXT_COLOR} />
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-        <Image source={recipe.imagen ? { uri: recipe.imagen } : placeholderImage} style={styles.image} />
+        <Image
+          source={recipe.imagen ? { uri: recipe.imagen } : placeholderImage}
+          style={styles.image}
+        />
 
         <LinearGradient
           colors={[PRIMARY_YELLOW, CONTENT_BG_COLOR, CONTENT_BG_COLOR]}
           locations={[0, 0.35, 1]}
           style={styles.contentWrapper}
         >
+          {/* Info Bar */}
           <View style={styles.infoBarContainer}>
             <TouchableOpacity style={styles.infoBarItem} onPress={() => setRatingVisible(true)}>
               <Icon name="star" color="#FFC700" size={18} />
               <Text style={styles.infoBarText}>
-                {recipe.rating.average.toFixed(1)} ({recipe.rating.count})
+                {recipe.valoraciones?.[0].rating.toFixed(1)} ({recipe.valoraciones?.length || 0})
               </Text>
             </TouchableOpacity>
+
             <View style={styles.infoBarItem}>
               <Icon name="heart" color="red" size={18} />
-              <Text style={styles.infoBarText}>{recipe.likes}</Text>
+              <Text style={styles.infoBarText}>{recipe.likes || 0}</Text>
             </View>
+
             <TouchableOpacity style={styles.infoBarItem} onPress={handleOpenComments}>
               <Icon name="chatbubble-ellipses-outline" color="#888" size={18} />
-              <Text style={styles.infoBarText}>{recipe.comments?.length || 0}</Text>
+              <Text style={styles.infoBarText}>{comments.length}</Text>
             </TouchableOpacity>
           </View>
 
+          {/* Título */}
           <Text style={styles.title}>{recipe.titulo}</Text>
-
           <View style={styles.separator} />
 
+          {/* Descripción */}
           <Text style={styles.sectionTitle}>Descripción</Text>
           <Text style={styles.description}>{recipe.descripcion}</Text>
 
+          {/* Instrucciones */}
           <Text style={styles.sectionTitle}>Instrucciones</Text>
-          <Text style={styles.description}>{recipe.instrucciones || 'No hay instrucciones disponibles.'}</Text>
+          <Text style={styles.description}>
+            {recipe.instrucciones || 'No hay instrucciones disponibles.'}
+          </Text>
 
+          {/* Ingredientes */}
           <Text style={styles.sectionTitle}>Ingredientes</Text>
-          {recipe.ingredientes.map((ingredient, index) => (
-            <Text key={index} style={styles.ingredientText}>• {ingredient.nombre} - {getAdjustedIngredient(ingredient)}</Text>
+          {recipe.ingredientes.map((ing, i) => (
+            <Text key={i} style={styles.ingredientText}>
+              • {ing.nombre} - {Math.round((ing.cantidad * (servings / (recipe.porciones || 1))) * 100) / 100} {ing.unidad}
+            </Text>
           ))}
 
           <View style={styles.separator} />
 
+          {/* Servings */}
           <Text style={styles.sectionTitle}>Ración</Text>
           <Pressable style={styles.servingSelector} onPress={() => setServingsVisible(true)}>
             <Text style={styles.servingText}>Cantidad: {servings}</Text>
@@ -225,32 +216,58 @@ export const DetailsScreen = () => {
           </Pressable>
 
           <TouchableOpacity style={styles.commentsButton} onPress={handleOpenComments}>
-            <Text style={styles.commentsButtonText}>Comentarios ({recipe.comments?.length || 0})</Text>
+            <Text style={styles.commentsButtonText}>Comentarios ({comments.length})</Text>
           </TouchableOpacity>
         </LinearGradient>
       </ScrollView>
 
-      {/* --- Modales y Hojas --- */}
+      {/* Modales y Sheets */}
       <ServingsSelector
         isVisible={isServingsVisible}
         onClose={() => setServingsVisible(false)}
         onSelect={setServings}
         baseServings={recipe.porciones || 1}
       />
+
       <RatingModal
-          isVisible={isRatingVisible}
-          onClose={() => setRatingVisible(false)}
-          ratingData={recipe.rating}
-          onSubmit={(userRating) => Alert.alert('¡Gracias!', `Has calificado con ${userRating} estrellas.`)}
+        isVisible={isRatingVisible}
+        onClose={() => setRatingVisible(false)}
+        ratingData={{
+          average: recipe.valoraciones?.[0].rating || 0,
+          count: recipe.valoraciones?.length || 0,
+          distribution: {}
+        }}
+        onSubmit={(userRating) => Alert.alert('¡Gracias!', `Has calificado con ${userRating} estrellas.`)}
       />
+
       <CommentsSheet
         ref={commentsSheetRef}
-        comments={recipe.comments || []}
-        onSubmit={(comment) => console.log(comment)}
+        comments={comments}
+        onSubmit={async (texto) => {
+          try {
+            await api.post(`/comentarios/${recipeId}/comment`, { texto });
+            // refrescar comentarios
+            const res = await api.get(`/comentarios/${recipeId}/comments`);
+            setComments(res.data.comments.map((c: any) => ({
+              id:   c.id,
+              user: c.usuario,
+              text: c.texto
+            })));
+            commentsSheetRef.current?.dismiss();
+          } catch (e: any) {
+            Alert.alert('Error', e.response?.data?.msg || e.message);
+          }
+        }}
       />
     </LinearGradient>
   );
 };
+
+// Colores y placeholder
+const TEXT_COLOR = '#44403C';
+const CONTENT_BG_COLOR = '#FEFBF6';
+const PRIMARY_YELLOW = '#E9A300';
+const placeholderImage = require('../../../assets/milanesacpure.png');
 
 const styles = StyleSheet.create({
   headerContainer: {
@@ -259,7 +276,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 50,
     paddingBottom: 10,
-    paddingHorizontal: 15,
+    paddingHorizontal: 15
   },
   headerTitle: { fontSize: 20, fontWeight: '600', color: TEXT_COLOR },
   headerButton: { padding: 5 },
@@ -270,12 +287,12 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     alignSelf: 'center',
     position: 'relative',
-    zIndex: 2,
+    zIndex: 2
   },
   contentWrapper: {
     padding: 20,
     marginTop: -80,
-    paddingTop: 100,
+    paddingTop: 100
   },
   infoBarContainer: {
     flexDirection: 'row',
@@ -290,7 +307,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
     marginHorizontal: 10,
-    marginBottom: 20,
+    marginBottom: 20
   },
   infoBarItem: { flexDirection: 'row', alignItems: 'center' },
   infoBarText: { marginLeft: 8, fontWeight: '500', color: TEXT_COLOR },
@@ -298,11 +315,10 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: TEXT_COLOR, marginTop: 20, marginBottom: 10 },
   separator: {
     height: 3,
-    backgroundColor: '#E9A300',
+    backgroundColor: PRIMARY_YELLOW,
     width: '95%',
     alignSelf: 'center',
-    marginVertical: 15,
-    opacity: 1,
+    marginVertical: 15
   },
   description: { fontSize: 15, lineHeight: 22, color: '#57534E' },
   ingredientText: { fontSize: 15, color: '#57534E', marginBottom: 5 },
@@ -315,7 +331,7 @@ const styles = StyleSheet.create({
     padding: 15,
     marginTop: 10,
     borderWidth: 2,
-    borderColor: "#444444"
+    borderColor: '#444444'
   },
   servingText: { fontSize: 16, color: TEXT_COLOR },
   commentsButton: {
@@ -325,42 +341,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 30,
     marginBottom: 20,
-    shadowColor: '#000',
-        shadowOffset: {
-          width: 0,
-          height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3,
+    elevation: 3
   },
   commentsButtonText: { color: TEXT_COLOR, fontWeight: 'bold', fontSize: 16 },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   loadingText: {
     marginTop: 10,
     fontSize: 18,
-    color: TEXT_COLOR,
+    color: TEXT_COLOR
   },
   errorText: {
     fontSize: 18,
     color: 'red',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 20
   },
   retryButton: {
     backgroundColor: '#FFD740',
     borderRadius: 20,
     paddingVertical: 12,
     paddingHorizontal: 32,
-    marginTop: 20,
+    marginTop: 20
   },
   retryButtonText: {
     color: TEXT_COLOR,
     fontSize: 16,
-    fontWeight: '500',
-  },
+    fontWeight: '500'
+  }
 });
