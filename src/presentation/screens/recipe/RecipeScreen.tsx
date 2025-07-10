@@ -1,4 +1,5 @@
 // src/screens/recipe/RecipeScreen.tsx
+
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -56,15 +57,13 @@ const TagSelector: React.FC<{
   </ScrollView>
 );
 
-// Componente modal para seleccionar unidad
 const UnitSelector: React.FC<{
   visible: boolean;
   onClose: () => void;
   onSelect: (unit: string) => void;
   currentUnit: string;
 }> = ({ visible, onClose, onSelect, currentUnit }) => {
-  const units = ['gr', 'kg', 'ml', 'lt', 'taza', 'cdta', 'cda', 'unidad', 'pizca', 'diente', 'hoja'];
-
+  const units = ['Gr', 'Kg', 'Ml', 'Lt', 'Oz', 'Cuchara', 'Diente' ];
   return (
     <Modal transparent visible={visible} animationType="fade">
       <View style={styles.modalOverlay}>
@@ -84,9 +83,10 @@ const UnitSelector: React.FC<{
                 }}
               >
                 <Text style={[
-                  styles.unitOptionText,
-                  currentUnit === unit && styles.activeUnitOptionText
-                ]}>
+                    styles.unitOptionText,
+                    currentUnit === unit && styles.activeUnitOptionText
+                  ]}
+                >
                   {unit}
                 </Text>
               </TouchableOpacity>
@@ -166,7 +166,6 @@ const IngredientList: React.FC<{
       <TouchableOpacity onPress={onAdd}>
         <Text style={styles.addIngredientText}>+ Agregar ingrediente</Text>
       </TouchableOpacity>
-
       <UnitSelector
         visible={unitModalVisible}
         onClose={() => setUnitModalVisible(false)}
@@ -234,8 +233,8 @@ export const RecipeScreen = () => {
   const [porciones, setPorciones] = useState('4');
   const [dificultad, setDificultad] = useState('Fácil');
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>([
-    { nombre: '', cantidad: '', unidad: 'gr' },
-    { nombre: '', cantidad: '', unidad: 'gr' }
+    //{ nombre: '', cantidad: '', unidad: 'gr' },
+    //{ nombre: '', cantidad: '', unidad: 'gr' }
   ]);
   const [selectedTag, setSelectedTag] = useState('Desayuno');
   const [photo, setPhoto] = useState<Asset | null>(null);
@@ -243,7 +242,7 @@ export const RecipeScreen = () => {
   const [pendingPayload, setPendingPayload] = useState<any>(null);
   const [saving, setSaving] = useState(false);
 
-  // cuando volvemos online, sincroniza pendientes
+  // sincronizar pendientes al reconectar
   useEffect(() => {
     const unsub = NetInfo.addEventListener(state => {
       if (state.isConnected) {
@@ -268,17 +267,145 @@ export const RecipeScreen = () => {
     try {
       const raw = await AsyncStorage.getItem(PENDING_KEY);
       const pend = raw ? JSON.parse(raw) : [];
-      if (pend.length) {
-        console.log('Sincronizando pendientes', pend);
-        // ▶️ aquí tus fetch para cada pendiente…
-        await AsyncStorage.removeItem(PENDING_KEY);
+      for (const p of pend) {
+        await publishPayload(p);
       }
+      await AsyncStorage.removeItem(PENDING_KEY);
     } catch (e) {
       console.warn('Error sincronizando', e);
     }
   };
 
-  // abre galería (pide permiso en Android < 33)
+  // crea payload simple para almacenamiento local
+  const pendingPayloadData = () => ({
+    receta, descripcion, instrucciones,
+    tiempoPreparacion, porciones, dificultad,
+    ingredientes, selectedTag, photoUri: photo?.uri,
+  });
+
+  // publica un payload almacenado
+  const publishPayload = async (p: any) => {
+    const formData = new FormData();
+    formData.append('titulo', p.receta.trim());
+    formData.append('descripcion', p.descripcion.trim());
+    formData.append('instrucciones', p.instrucciones.trim() || p.descripcion.trim());
+    formData.append('tiempo_preparacion', p.tiempoPreparacion);
+    formData.append('dificultad', p.dificultad);
+    formData.append('porciones', p.porciones);
+    formData.append('ingredientes', JSON.stringify(
+      p.ingredientes.map((i: any) => ({
+        nombre: i.nombre.trim(),
+        cantidad: parseFloat(i.cantidad) || 1,
+        unidad: i.unidad.trim(),
+      }))
+    ));
+    if (p.photoUri) {
+      formData.append('media', {
+        uri: p.photoUri,
+        type: 'image/jpeg',
+        name: `photo_${Date.now()}.jpg`,
+      } as any);
+    }
+    await api.post('/receta/newreceta', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 30000,
+    });
+  };
+
+  // publica la receta actual
+  const publishRecipe = async () => {
+    try {
+      const formData = new FormData();
+      formData.append('titulo', receta.trim());
+      formData.append('descripcion', descripcion.trim());
+      formData.append('instrucciones', instrucciones.trim() || descripcion.trim());
+      formData.append('tiempo_preparacion', tiempoPreparacion);
+      formData.append('dificultad', dificultad);
+      formData.append('porciones', porciones);
+      formData.append('ingredientes', JSON.stringify(
+        ingredientes.map(i => ({
+          nombre: i.nombre.trim(),
+          cantidad: parseFloat(i.cantidad) || 1,
+          unidad: i.unidad.trim(),
+        }))
+      ));
+      if (photo?.uri) {
+        formData.append('media', {
+          uri: photo.uri,
+          type: photo.type || 'image/jpeg',
+          name: photo.fileName || `photo_${Date.now()}.jpg`,
+        } as any);
+      }
+
+      const res = await api.post('/receta/newreceta', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000,
+      });
+
+      if (res.status === 201) {
+        Alert.alert('¡Éxito!', 'Receta creada correctamente', [{ text: 'OK', onPress: clearForm }]);
+      } else {
+        throw new Error('Respuesta inesperada');
+      }
+    } catch (error: any) {
+      console.error('Error publicando:', error);
+      Alert.alert(
+        error.response?.data?.message
+          ? `Error del servidor: ${error.response.data.message}`
+          : 'No se pudo publicar la receta'
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // flujo de guardado con tres casos
+  const handleSave = async () => {
+    const validationError = validateForm();
+    if (validationError) {
+      Alert.alert('Error de validación', validationError);
+      return;
+    }
+
+    setSaving(true);
+    const netState = await NetInfo.fetch();
+
+    if (!netState.isConnected) {
+      Alert.alert(
+        'Sin conexión',
+        'No tienes conexión a Internet. Tu receta se guardará localmente y se publicará cuando recuperes señal.',
+        [{ text: 'OK', onPress: async () => {
+            await saveRecipeLocally(pendingPayloadData());
+            clearForm();
+            setSaving(false);
+          }
+        }]
+      );
+      return;
+    }
+
+    if (netState.type === 'cellular') {
+      Alert.alert(
+        'Red móvil detectada',
+        'Estás usando datos móviles. ¿Quieres publicar ahora (usando tus datos) o esperar a tener Wi-Fi gratuito?',
+        [
+          { text: 'Publicar ahora', onPress: publishRecipe },
+          { text: 'Esperar Wi-Fi', onPress: async () => {
+              await saveRecipeLocally(pendingPayloadData());
+              clearForm();
+              setSaving(false);
+            }
+          }
+        ]
+      );
+      return;
+    }
+
+    // Wi-Fi
+    await publishRecipe();
+  };
+
+  // galería Android <33
   const handleAddImage = async () => {
     if (Platform.OS === 'android' && Platform.Version < 33) {
       const granted = await PermissionsAndroid.request(
@@ -304,20 +431,16 @@ export const RecipeScreen = () => {
     });
   };
 
-  // intenta publicar inmediatamente
   const handleReintentar = async () => {
     const state = await NetInfo.fetch();
     if (state.isConnected && pendingPayload) {
-      console.log('Reintentando envío:', pendingPayload);
       Alert.alert('¡Listo!', 'Tu receta se publicó correctamente.');
       setShowOfflineModal(false);
       setPendingPayload(null);
       clearForm();
     }
-    // si aún offline, no hacemos nada (modal sigue abierto)
   };
 
-  // encola para publicar más tarde
   const handlePublicarLuego = async () => {
     if (pendingPayload) {
       await saveRecipeLocally(pendingPayload);
@@ -328,195 +451,61 @@ export const RecipeScreen = () => {
     }
   };
 
-  // Función para limpiar el formulario
   const clearForm = () => {
     setReceta('');
     setDescripcion('');
     setInstrucciones('');
-    setTiempoPreparacion('30');
-    setPorciones('4');
-    setDificultad('Fácil');
+    setTiempoPreparacion('');
+    setPorciones('');
+    setDificultad('');
     setIngredientes([
-      { nombre: '', cantidad: '', unidad: 'gr' },
-      { nombre: '', cantidad: '', unidad: 'gr' }
+      //{ nombre: '', cantidad: '', unidad: 'gr' },
+      //{ nombre: '', cantidad: '', unidad: 'gr' }
     ]);
     setSelectedTag('Desayuno');
     setPhoto(null);
   };
 
-  // Validar formulario mejorado
   const validateForm = (): string | null => {
     if (!receta.trim()) return 'El título de la receta es requerido';
-
     const ingredientesValidos = ingredientes.filter(i =>
-      i.nombre.trim() !== '' && i.cantidad.trim() !== '' && i.unidad.trim() !== ''
+      i.nombre.trim() && i.cantidad.trim() && i.unidad.trim()
     );
-    if (ingredientesValidos.length === 0) return 'Debe agregar al menos un ingrediente completo (nombre, cantidad y unidad)';
-
-    const tiempoNum = parseInt(tiempoPreparacion);
-    if (isNaN(tiempoNum) || tiempoNum <= 0) return 'El tiempo de preparación debe ser un número válido mayor a 0';
-
-    const porcionesNum = parseInt(porciones);
-    if (isNaN(porcionesNum) || porcionesNum <= 0) return 'Las porciones deben ser un número válido mayor a 0';
-
+    if (ingredientesValidos.length === 0)
+      return 'Debe agregar al menos un ingrediente completo';
+    const t = parseInt(tiempoPreparacion);
+    if (isNaN(t) || t <= 0) return 'El tiempo debe ser un número válido mayor a 0';
+    const p = parseInt(porciones);
+    if (isNaN(p) || p <= 0) return 'Las porciones deben ser un número válido mayor a 0';
     return null;
   };
 
-  // inicia flujo de guardado
-  const handleSave = async () => {
-    // Validar formulario
-    const validationError = validateForm();
-    if (validationError) {
-      Alert.alert('Error de validación', validationError);
-      return;
-    }
-
-    setSaving(true);
-
-    const state = await NetInfo.fetch();
-    if (!state.isConnected) {
-      setPendingPayload({
-        receta,
-        descripcion,
-        instrucciones,
-        tiempoPreparacion,
-        porciones,
-        dificultad,
-        ingredientes,
-        selectedTag,
-        photoUri: photo?.uri,
-      });
-      setShowOfflineModal(true);
-      setSaving(false);
-      return;
-    }
-
-    // Construir FormData correctamente
-    const formData = new FormData();
-    formData.append('titulo', receta.trim());
-    formData.append('descripcion', descripcion.trim());
-    formData.append('instrucciones', instrucciones.trim() || descripcion.trim());
-    formData.append('tiempo_preparacion', tiempoPreparacion);
-    formData.append('dificultad', dificultad);
-    formData.append('porciones', porciones);
-
-    // Filtrar y formatear ingredientes
-    const ingredientesValidos = ingredientes
-      .filter(i => i.nombre.trim() !== '' && i.cantidad.trim() !== '' && i.unidad.trim() !== '')
-      .map(i => ({
-        nombre: i.nombre.trim(),
-        cantidad: parseFloat(i.cantidad) || 1,
-        unidad: i.unidad.trim(),
-      }));
-    formData.append('ingredientes', JSON.stringify(ingredientesValidos));
-
-    // CORRECIÓN CRÍTICA: Formato correcto para imagen en React Native
-    if (photo && photo.uri) {
-      const imageFile = {
-        uri: photo.uri,
-        type: photo.type || 'image/jpeg',
-        name: photo.fileName || `photo_${Date.now()}.jpg`,
-      } as any;
-
-      formData.append('media', imageFile);
-    }
-
-    console.log('FormData a enviar:', {
-      titulo: receta.trim(),
-      descripcion: descripcion.trim(),
-      instrucciones: instrucciones.trim() || descripcion.trim(),
-      tiempo_preparacion: tiempoPreparacion,
-      dificultad,
-      porciones,
-      ingredientes: ingredientesValidos,
-      hasImage: !!photo
-    });
-
-    try {
-      const response = await api.post('/receta/newreceta', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 30000, // 30 segundos timeout
-      });
-
-      if (response.status === 201) {
-        Alert.alert('¡Éxito!', 'Receta creada correctamente', [
-          {
-            text: 'OK',
-            onPress: clearForm
-          }
-        ]);
-      } else {
-        console.error('Respuesta inesperada:', response);
-        Alert.alert('Error', 'No se pudo crear la receta');
-      }
-    } catch (error: any) {
-      console.error('Error completo:', error);
-
-      if (error.response) {
-        // El servidor respondió con un código de error
-        console.error('Error response:', error.response.data);
-        Alert.alert('Error del servidor', error.response.data?.message || 'Error desconocido');
-      } else if (error.request) {
-        // La petición se hizo pero no hubo respuesta
-        console.error('Error request:', error.request);
-        Alert.alert('Error de conexión', 'No se pudo conectar con el servidor');
-      } else {
-        // Algo pasó al configurar la petición
-        console.error('Error config:', error.message);
-        Alert.alert('Error', 'Hubo un problema enviando la receta');
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCancel = () =>
-    Alert.alert('Cancelar', 'Se perderán los cambios no guardados.', [
-      { text: 'No', style: 'cancel' },
-      { text: 'Sí', onPress: () => console.log('Volviendo…') },
-    ]);
-
-  const handleAddIngredient = () => setIngredientes([...ingredientes, { nombre: '', cantidad: '', unidad: 'gr' }]);
-
-  const handleIngredientChange = (i: number, field: keyof Ingrediente, v: string) => {
-    const c = [...ingredientes];
-    c[i][field] = v;
-    setIngredientes(c);
-  };
-
-  const handleRemoveIngredient = (i: number) =>
-    ingredientes.length > 1 && setIngredientes(ingredientes.filter((_, idx) => idx !== i));
-
   const tags = [
-    'Desayuno',
-    'Almuerzo',
-    'Cena',
-    'Postres',
-    'Snacks',
-    'Bebidas',
-    'Ensaladas',
-    'Sopas',
+    'Desayuno','Almuerzo','Cena','Postres',
+    'Snacks','Bebidas','Ensaladas','Sopas',
   ];
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <LinearGradient
-        colors={['rgba(233,163,0,0.9)', 'rgba(251,192,45,1)', 'rgba(255,255,255,0.8)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
+        colors={['rgba(233,163,0,0.9)','rgba(251,192,45,1)','rgba(255,255,255,0.8)']}
+        start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
         style={styles.gradient}
       >
         <Header />
-
         <View style={styles.topSection}>
-          <TouchableOpacity onPress={handleCancel} style={styles.cancelButton}>
+          <TouchableOpacity onPress={() => Alert.alert('Cancelar','Se perderán cambios.',[
+              { text: 'No', style: 'cancel' },
+              { text: 'Sí', onPress: () => {
+                  clearForm();
+                  } },
+            ])}
+            style={styles.cancelButton}
+          >
             <Text style={styles.cancelText}>Cancelar</Text>
           </TouchableOpacity>
           <TagSelector tags={tags} selected={selectedTag} onSelect={setSelectedTag} />
         </View>
-
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.inputContainer}>
             <TextInput
@@ -527,10 +516,9 @@ export const RecipeScreen = () => {
               onChangeText={setReceta}
             />
           </View>
-
           <View style={styles.inputContainer}>
             <TextInput
-              style={[styles.input, styles.descriptionInput]}
+              style={[styles.input,styles.descriptionInput]}
               placeholder="Descripción de la receta..."
               placeholderTextColor="#999"
               value={descripcion}
@@ -538,10 +526,9 @@ export const RecipeScreen = () => {
               multiline
             />
           </View>
-
           <View style={styles.inputContainer}>
             <TextInput
-              style={[styles.input, styles.descriptionInput]}
+              style={[styles.input,styles.descriptionInput]}
               placeholder="Instrucciones paso a paso..."
               placeholderTextColor="#999"
               value={instrucciones}
@@ -549,14 +536,12 @@ export const RecipeScreen = () => {
               multiline
             />
           </View>
-
-          {/* Campos de tiempo y porciones */}
           <View style={styles.rowContainer}>
             <View style={styles.halfInputContainer}>
               <Text style={styles.inputLabel}>Tiempo (min)</Text>
               <TextInput
                 style={styles.input}
-                placeholder="30"
+                placeholder="25"
                 placeholderTextColor="#999"
                 value={tiempoPreparacion}
                 onChangeText={setTiempoPreparacion}
@@ -567,7 +552,7 @@ export const RecipeScreen = () => {
               <Text style={styles.inputLabel}>Porciones</Text>
               <TextInput
                 style={styles.input}
-                placeholder="4"
+                placeholder="2"
                 placeholderTextColor="#999"
                 value={porciones}
                 onChangeText={setPorciones}
@@ -575,31 +560,27 @@ export const RecipeScreen = () => {
               />
             </View>
           </View>
-
           <DifficultySelector selected={dificultad} onSelect={setDificultad} />
-
           <IngredientList
             items={ingredientes}
-            onAdd={handleAddIngredient}
-            onChange={handleIngredientChange}
-            onRemove={handleRemoveIngredient}
+            onAdd={() => setIngredientes([...ingredientes,{ nombre:'',cantidad:'',unidad:'Gr'}])}
+            onChange={(i,field,v)=>{
+              const c=[...ingredientes];c[i][field]=v;setIngredientes(c);
+            }}
+            onRemove={i=>ingredientes.length>1&&setIngredientes(ingredientes.filter((_,idx)=>idx!==i))}
           />
-
           <ImagePickerSection photo={photo} onPick={handleAddImage} />
-
           <TouchableOpacity
             style={[styles.saveButton, saving && styles.savingButton]}
             onPress={handleSave}
             disabled={saving}
           >
-            {saving ? (
-              <ActivityIndicator size="small" color="#000" />
-            ) : (
-              <Text style={styles.saveText}>Guardar Receta</Text>
-            )}
+            {saving
+              ? <ActivityIndicator size="small" color="#000" />
+              : <Text style={styles.saveText}>Guardar Receta</Text>
+            }
           </TouchableOpacity>
         </ScrollView>
-
         <Modal transparent visible={showOfflineModal} animationType="fade">
           <View style={styles.modalOverlay}>
             <View style={styles.modalBox}>
@@ -627,11 +608,9 @@ export const RecipeScreen = () => {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#E9A300' },
   gradient: { flex: 1 },
-
   topSection: { paddingHorizontal: 16, paddingTop: 12 },
   cancelButton: { alignSelf: 'flex-end', padding: 8 },
   cancelText: { color: '#555', fontSize: 16 },
-
   tagsContainer: { paddingVertical: 8, paddingHorizontal: 4 },
   tag: {
     backgroundColor: 'rgba(255,255,255,0.3)',
@@ -643,27 +622,21 @@ const styles = StyleSheet.create({
   activeTag: { backgroundColor: 'rgba(255,255,255,0.8)' },
   tagText: { color: '#666', fontSize: 14 },
   activeTagText: { color: '#333', fontWeight: '600' },
-
   content: { flex: 1, padding: 16 },
   inputContainer: { marginBottom: 5, margin: 8 },
-
-  // Contenedor para campos en fila
   rowContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 5,
     margin: 8,
   },
-  halfInputContainer: {
-    flex: 0.48,
-  },
+  halfInputContainer: { flex: 0.48 },
   inputLabel: {
     fontSize: 14,
     color: '#333',
     marginBottom: 4,
     fontWeight: '500',
   },
-
   input: {
     backgroundColor: 'rgba(255,255,255,0.9)',
     borderRadius: 8,
@@ -673,16 +646,12 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
   },
   descriptionInput: { minHeight: 100, marginBottom: 10 },
-
-  // Estilos para sección de título
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
     marginBottom: 8,
   },
-
-  // Estilos para selector de dificultad
   difficultySection: {
     marginBottom: 16,
     margin: 8,
@@ -715,8 +684,6 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '600',
   },
-
-  // Estilos mejorados para ingredientes
   ingredientsSection: { marginBottom: 16, margin: 8 },
   ingredientRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   ingredientIcon: {
@@ -742,26 +709,16 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
     marginRight: 4,
   },
-  ingredientNombre: {
-    flex: 2,
-  },
-  ingredientCantidad: {
-    flex: 0.8,
-  },
+  ingredientNombre: { flex: 2 },
+  ingredientCantidad: { flex: 0.8 },
   ingredientUnidad: {
     flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  unidadSelectorText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  dropdownArrow: {
-    fontSize: 10,
-    color: '#666',
-  },
+  unidadSelectorText: { fontSize: 14, color: '#333' },
+  dropdownArrow: { fontSize: 10, color: '#666' },
   removeButton: {
     marginLeft: 8,
     width: 24,
@@ -773,7 +730,6 @@ const styles = StyleSheet.create({
   },
   removeButtonText: { color: '#fff', fontSize: 16, lineHeight: 16 },
   addIngredientText: { color: '#000', fontSize: 14, margin: 10 },
-
   imageContainer: {
     backgroundColor: 'rgba(255,255,255,0.9)',
     borderRadius: 8,
@@ -797,7 +753,6 @@ const styles = StyleSheet.create({
   },
   addImageText: { fontSize: 24, color: '#666' },
   imageHelpText: { color: '#999', fontSize: 14 },
-
   saveButton: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -807,19 +762,36 @@ const styles = StyleSheet.create({
     marginLeft: 50,
     marginRight: 50,
   },
-  savingButton: {
-    backgroundColor: '#DDD',
-  },
+  savingButton: { backgroundColor: '#DDD' },
   saveText: { color: '#000', fontSize: 16, fontWeight: '600' },
-
-  // Estilos para modal de unidades
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: 'rgba(0,0,0,0.4)',
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    unitModalBox: {
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBox: {
+    width: '80%',
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    padding: 20,
+  },
+  offlineModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  modalMsg: { fontSize: 14, marginBottom: 16 },
+  modalBtns: { flexDirection: 'row', justifyContent: 'space-between' },
+  modalBtn: {
+    flex: 0.48,
+    backgroundColor: '#E9A300',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalBtnText: { color: '#FFF', fontWeight: '600' },
+  unitModalBox: {
       width: '80%',
       maxHeight: '70%',
       backgroundColor: '#FFF',
@@ -832,7 +804,7 @@ const styles = StyleSheet.create({
       fontSize: 18,
       fontWeight: '600',
       marginBottom: 12,
-      textAlign: 'center'
+      textAlign: 'center',
     },
     unitList: {
       maxHeight: 300,
@@ -863,6 +835,6 @@ const styles = StyleSheet.create({
     },
     closeButtonText: {
       color: '#000',
-      fontWeight: '600'
-    }
+      fontWeight: '600',
+    },
 });
