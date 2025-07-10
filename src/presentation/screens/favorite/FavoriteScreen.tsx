@@ -41,18 +41,16 @@ export const FavoriteScreen = () => {
   const fetchFavorites = async () => {
     try {
       const res = await api.get('/favs/misFavoritos')
-      const raw = res.data as Array<{
-        _id: string
-        titulo: string
-        descripcion: string
-        imagen?: string | null
-        valoraciones?: Array<{ rating: number }>
-      }>
+      const raw = Array.isArray(res.data) ? res.data : []
 
-      const mapped = raw.map(r => {
-        const vals = r.valoraciones ?? []
+      // 1) Filtrás todos los null/undefined
+      const cleaned = raw.filter((r): r is NonNullable<typeof r> => r != null)
+
+      // 2) Ahora sí mapeás sin miedo
+      const mapped = cleaned.map(r => {
+        const vals = Array.isArray(r.valoraciones) ? r.valoraciones : []
         const avg = vals.length
-          ? vals.reduce((s, v) => s + v.rating, 0) / vals.length
+          ? vals.reduce((sum, v) => sum + (v.rating ?? 0), 0) / vals.length
           : 0
 
         return {
@@ -67,6 +65,7 @@ export const FavoriteScreen = () => {
       setRecipes(mapped)
     } catch (err) {
       console.warn('❌ Error al cargar favoritos:', err)
+      Alert.alert('Error', 'No pudimos cargar tus favoritos')
     }
   }
 
