@@ -1,4 +1,5 @@
 // src/screens/auth/LoginScreen.tsx
+
 import React, { useState } from 'react';
 import {
   Image,
@@ -12,9 +13,10 @@ import {
 import { CommonActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';                   // ←--- MOD: importar NetInfo
 import { IonIcon } from '../../components/shared/IonIcon';
 import { loginStyles } from './styles/loginScreenStyles';
-import api from '../../../services/api';  // <cliente axios
+import api from '../../../services/api';
 
 import type { RootStackParams } from '../../navigation/AuthNavigator';
 
@@ -22,10 +24,10 @@ type AuthNavProp = NativeStackNavigationProp<RootStackParams, 'LoginScreen'>;
 
 export const LoginScreen = () => {
   const navigation = useNavigation<AuthNavProp>();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail]                 = useState('');
+  const [password, setPassword]           = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]             = useState(false);
 
   const togglePasswordVisibility = () => {
     setPasswordVisible(v => !v);
@@ -36,6 +38,15 @@ export const LoginScreen = () => {
       return Alert.alert('Error', 'Por favor ingresa email y contraseña');
     }
 
+    // ←--- MOD: verificar conexión a internet antes de llamar al servidor
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected) {
+      return Alert.alert(
+        'Error de conexión',
+        'No se pudo conectar con el servidor, corrobore su señal de internet o vuelva a intentarlo más tarde'
+      );
+    }
+
     setLoading(true);
     try {
       const { data } = await api.post('/auth/login', { email, password });
@@ -43,16 +54,19 @@ export const LoginScreen = () => {
       await AsyncStorage.setItem('ACCESS_TOKEN', data.accessToken);
       await AsyncStorage.setItem('REFRESH_TOKEN', data.refreshToken);
 
-      // Navegamos al stack principal (ajusta el nombre según tu RootNavigator)
+      // Navegamos al stack principal
       navigation.dispatch(
-              CommonActions.reset({
-                index: 0,
-                routes: [{ name: 'MainApp' }]
-              })
-            )
+        CommonActions.reset({
+          index: 0,
+          routes: [{ name: 'MainApp' }]
+        })
+      );
     } catch (err: any) {
       console.error('Login error:', err);
-      Alert.alert(
+
+      // Si no hubo respuesta del servidor (network error), se habría manejado arriba
+      // Aquí manejamos credenciales incorrectas u otros errores del servidor
+      return Alert.alert(
         'Login fallido',
         err.response?.data?.message || err.message
       );
