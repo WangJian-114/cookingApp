@@ -27,13 +27,10 @@ const SideMenuNavigator = () => {
 
   return (
     <Drawer.Navigator
-
-
           drawerType={width >= 758 ? 'permanent' : 'slide'}
           drawerStyle={{
             backgroundColor: '#FFF'
           }}
-
           screenOptions={{
             headerShown: false,
             drawerPosition:"right",

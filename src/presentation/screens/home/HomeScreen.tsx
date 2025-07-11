@@ -8,9 +8,7 @@ import {
   Dimensions,
   Pressable,
   Image,
-  ImageSourcePropType,
   RefreshControl,
-  Alert,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Searchbar } from 'react-native-paper'
@@ -19,123 +17,42 @@ import {
   useFocusEffect,
 } from '@react-navigation/native'
 import LinearGradient from 'react-native-linear-gradient'
-
-import api from '../../../services/api'
 import { IonIcon } from '../../components/shared/IonIcon'
 import { Header } from '../../components/shared/header/Header'
 
-const placeholderImage = require('../../../assets/milanesacpure.png')
-
-type PopularRecipe = { id: string; image: ImageSourcePropType }
-type Recipe = {
-  id: string
-  title: string
-  description: string
-  image: ImageSourcePropType
-  rating: number
-}
+import { useRecipes } from '../../../contexts/RecipesContext' // <- IMPORTANTE
 
 const { width } = Dimensions.get('window')
 const POP_CARD_WIDTH = (width - 32 - 12 * 2) / 3
 const ALL_CARD_WIDTH = (width - 32 - 8) / 2
 
 export const HomeScreen = () => {
-  const navigation = useNavigation()
+  const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('')
   const [refreshing, setRefreshing] = useState(false)
 
-  const [popularRecipes, setPopularRecipes] = useState<PopularRecipe[]>([])
-  const [allRecipes, setAllRecipes]       = useState<Recipe[]>([])
-  const [favorites, setFavorites]         = useState<Set<string>>(new Set())
+  // =============================
+  //  NECESARIOS DEL CONTEXT 👇
+  // =============================
+  const {
+    allRecipes,
+    popularRecipes,
+    favorites,
+    toggleFavorite,
+    refreshAll,
+  } = useRecipes();
 
-  // 1) Populares aleatorias
-  const fetchPopular = async () => {
-    try {
-      const res = await api.get('/receta/populares')
-      const raw = res.data as Array<{ _id: string; imagen?: string | null }>
-      setPopularRecipes(
-        raw.map(r => ({
-          id: r._id,
-          image: r.imagen ? { uri: r.imagen } : placeholderImage,
-        }))
-      )
-    } catch (err) {
-      console.warn('❌ Error al cargar populares:', err)
-    }
-  }
-
-  // 2) Todas las recetas
-  const fetchAll = async () => {
-    try {
-      const res = await api.get('/receta/Allrecetas')
-      const raw = res.data as Array<{
-        _id: string
-        titulo: string
-        descripcion: string
-        imagen?: string | null
-        valoraciones?: Array<{ rating: number }>
-      }>
-      setAllRecipes(
-        raw.map(r => {
-          const vals = r.valoraciones ?? []
-          const avg = vals.length
-            ? vals.reduce((s, v) => s + v.rating, 0) / vals.length
-            : 0
-          return {
-            id: r._id,
-            title: r.titulo,
-            description: r.descripcion,
-            image: r.imagen ? { uri: r.imagen } : placeholderImage,
-            rating: avg,
-          }
-        })
-      )
-    } catch (err) {
-      console.warn('❌ Error al cargar recetas:', err)
-    }
-  }
-
-  // 3) Favoritos del usuario
-  const fetchFavorites = async () => {
-    try {
-      const res = await api.get('/favs/misFavoritos')
-      const favIds = new Set(
-        (res.data as Array<{ _id: string }>).map(r => r._id)
-      )
-      setFavorites(favIds)
-    } catch (err) {
-      console.warn('❌ Error al cargar favoritos:', err)
-    }
-  }
-
-  // 4) Toggle favorito
-  const toggleFavorite = async (recipeId: string) => {
-    try {
-      if (favorites.has(recipeId)) {
-        await api.delete(`/favs/borrar/${recipeId}`)
-        favorites.delete(recipeId)
-      } else {
-        await api.post('/favs/agregar', { recetaId: recipeId })
-        favorites.add(recipeId)
-      }
-      setFavorites(new Set(favorites))
-    } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || err.message)
-    }
-  }
-
-  // Refetch cada vez que la pantalla recibe foco
   useFocusEffect(
     useCallback(() => {
-      Promise.all([fetchPopular(), fetchAll(), fetchFavorites()])
-    }, [])
+      refreshAll();
+    }, [refreshAll])
   )
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
-    await Promise.all([fetchPopular(), fetchAll(), fetchFavorites()])
+    await refreshAll();
     setRefreshing(false)
-  }, [])
+  }, [refreshAll])
 
   const navigateToDetails = (recipeId: string) =>
     navigation.navigate('DetailsScreen' as never, { recipeId } as never)
@@ -144,7 +61,7 @@ export const HomeScreen = () => {
     r.title.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const renderPopular = ({ item }: { item: PopularRecipe }) => (
+  const renderPopular = ({ item }) => (
     <Pressable
       style={styles.popularCard}
       onPress={() => navigateToDetails(item.id)}>
@@ -156,7 +73,7 @@ export const HomeScreen = () => {
     </Pressable>
   )
 
-  const renderRecipe = ({ item }: { item: Recipe }) => {
+  const renderRecipe = ({ item }) => {
     const isFav = favorites.has(item.id)
     return (
       <Pressable
