@@ -1,5 +1,5 @@
 // src/presentation/screens/home/HomeScreen.tsx
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import {
   View,
   StyleSheet,
@@ -40,6 +40,7 @@ export const HomeScreen = () => {
     favorites,
     toggleFavorite,
     refreshAll,
+    getAllRatings,
   } = useRecipes();
 
   useFocusEffect(
@@ -47,6 +48,10 @@ export const HomeScreen = () => {
       refreshAll();
     }, [refreshAll])
   )
+
+  useEffect(() => {
+    getAllRatings();
+  }, [allRecipes, getAllRatings]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
@@ -74,6 +79,7 @@ export const HomeScreen = () => {
   )
 
   const renderRecipe = ({ item }) => {
+    console.log('CONSOLE item: ', item);
     const isFav = favorites.has(item.id)
     return (
       <Pressable
@@ -82,7 +88,8 @@ export const HomeScreen = () => {
         <Image source={item.image} style={styles.recipeImage} />
         <View style={styles.ratingBadge}>
           <IonIcon name="star" size={12} color="#FFD700" />
-          <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+          {/* <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text> */}
+          <Text style={styles.ratingText}>{3.12.toFixed(1)}</Text>
         </View>
         <View style={styles.recipeInfo}>
           <Text style={styles.recipeTitle}>{item.title}</Text>

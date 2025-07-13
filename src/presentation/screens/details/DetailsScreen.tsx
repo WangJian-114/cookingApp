@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 // src/presentation/screens/details/DetailsScreen.tsx
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -20,6 +21,7 @@ import { ServingsSelector } from '../../components/shared/details/ServingsSelect
 import { RatingModal }    from '../../components/shared/details/RatingModal';
 import { CommentsSheet }  from '../../components/shared/details/CommentsSheet';
 import api from '../../../services/api';
+import { useRecipes } from '../../../contexts/RecipesContext';
 
 // Parámetros de navegación
 type RootStackParamList = {
@@ -55,6 +57,7 @@ export const DetailsScreen = () => {
 
   const [recipe, setRecipe] = useState<RecipeDetails | null>(null);
   const [comments, setComments] = useState<Array<{ id: string; user: string; text: string }>>([]);
+
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
 
@@ -62,8 +65,14 @@ export const DetailsScreen = () => {
   const [isLiked, setIsLiked]             = useState(false);
   const [isServingsVisible, setServingsVisible] = useState(false);
   const [isRatingVisible, setRatingVisible]     = useState(false);
+  const { getRatings, addRating, rating } = useRecipes();
 
   const commentsSheetRef = useRef<any>(null);
+
+  const handleRatingSubmit = async (userRating:number) => {
+    await addRating(recipeId, userRating);
+    Alert.alert('¡Gracias!', `Has calificado con ${userRating} estrellas.`);
+  }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -73,6 +82,7 @@ export const DetailsScreen = () => {
         // 1) Obtener detalle de la receta
         const recRes = await api.get(`/receta/getRecetaById/${recipeId}`);
         const data = recRes.data;
+        console.log('CONSOLE recipes data: ', recRes);
 
         // 2) Calcular rating localmente si lo necesitas
         let avg = 0, cnt = 0;
@@ -89,7 +99,8 @@ export const DetailsScreen = () => {
           text: c.texto,
           avatar: c.profile_picture
         }));
-
+        await getRatings(recipeId);
+        
         // 4) Actualizar estados
         setRecipe({
           ...data,
@@ -169,7 +180,7 @@ export const DetailsScreen = () => {
             <TouchableOpacity style={styles.infoBarItem} onPress={() => setRatingVisible(true)}>
               <Icon name="star" color="#FFC700" size={18} />
               <Text style={styles.infoBarText}>
-                {recipe.valoraciones?.[0].rating.toFixed(1)} ({recipe.valoraciones?.length || 0})
+                {rating?.rating.toFixed(1)} ({rating?.totalCount || 0})
               </Text>
             </TouchableOpacity>
 
@@ -233,11 +244,11 @@ export const DetailsScreen = () => {
         isVisible={isRatingVisible}
         onClose={() => setRatingVisible(false)}
         ratingData={{
-          average: recipe.valoraciones?.[0].rating || 0,
-          count: recipe.valoraciones?.length || 0,
-          distribution: {}
+          average: rating?.rating,
+          count: rating?.totalCount,
+          distribution: rating?.distribution,
         }}
-        onSubmit={(userRating) => Alert.alert('¡Gracias!', `Has calificado con ${userRating} estrellas.`)}
+        onSubmit={handleRatingSubmit}
       />
 
       <CommentsSheet

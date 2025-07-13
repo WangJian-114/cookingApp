@@ -38,19 +38,20 @@ const StarDisplay = ({ rating, size = 16 }) => {
 
 
 export const RatingModal = ({ isVisible, onClose, ratingData, onSubmit }) => {
+  const { count, average, distribution } = ratingData; 
   const [userRating, setUserRating] = useState(0);
-
+  console.log('CONSOLE ratingData: ', ratingData);
   const handleSubmit = () => {
     if (userRating === 0) {
       Alert.alert('Sin calificación', 'Por favor, selecciona de 1 a 5 estrellas.');
       return;
     }
     onSubmit(userRating);
-    setUserRating(0);
+    // setUserRating(0);
     onClose();
   };
 
-  const totalRatings = ratingData?.count ?? 0;
+  const totalRatings = count ?? 0;
 
   return (
     <Modal
@@ -65,18 +66,25 @@ export const RatingModal = ({ isVisible, onClose, ratingData, onSubmit }) => {
 
           {/* Promedio General */}
           <View style={styles.averageContainer}>
-            <Text style={styles.averageRating}>{ratingData?.average.toFixed(1)}</Text>
-            <StarDisplay rating={ratingData?.average} size={22} />
+            <Text style={styles.averageRating}>{average?.toFixed(1)}</Text>
+            <StarDisplay rating={average} size={22} />
             <Text style={styles.totalCount}>({totalRatings})</Text>
           </View>
 
           {/* Distribución de Calificaciones */}
           <View style={styles.distributionContainer}>
-            <RatingBar stars={5} count={ratingData?.distribution['5'] ?? 0} total={totalRatings} />
-            <RatingBar stars={4} count={ratingData?.distribution['4'] ?? 0} total={totalRatings} />
-            <RatingBar stars={3} count={ratingData?.distribution['3'] ?? 0} total={totalRatings} />
-            <RatingBar stars={2} count={ratingData?.distribution['2'] ?? 0} total={totalRatings} />
-            <RatingBar stars={1} count={ratingData?.distribution['1'] ?? 0} total={totalRatings} />
+            {[5,4,3,2,1].map((star) => {
+              const bucket = distribution?.find(d => d.star === star);
+              const c = bucket?.count ?? 0;
+              return (
+                <RatingBar
+                  key={star}
+                  stars={star}
+                  count={c}
+                  total={count}
+                />
+              )
+            })}
           </View>
 
           <Text style={styles.subtitle}>Tu calificación</Text>
