@@ -99,11 +99,9 @@ export const RecipesProvider = ({ children }) => {
 
   const addRating = async (recipeId, userRating) => {
     try {
-      const response = await api.post(`/rating/${recipeId}/rating`, { puntuacion: userRating });
-      console.log('CONSOLE response addRating: ', response);
-      if (response.status === 200) {
-        setRating(response?.data)
-      }
+     const response = await api.post(`/rating/${recipeId}/rating`, { puntuacion: userRating });
+    const summary = response.data.summary;
+    setRating(summary);
     } catch (e) {
       console.log('Error: ', e);
     }
@@ -111,8 +109,10 @@ export const RecipesProvider = ({ children }) => {
 
   const getAllRatings = async () => {
     try {
-      const allRating = await api.get(`/rating/ratings`);
-      console.log('CONSOLE response allRating: ', allRating);
+
+    const response = await api.get(`/rating/ratings`);
+    setAllRatings(response.data.ratings);
+     console.log('Ratings cargados:', response.data.ratings);
     } catch (e) {
       console.log('Error: ', e);
     }

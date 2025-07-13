@@ -1,4 +1,3 @@
-// src/presentation/screens/home/HomeScreen.tsx
 import React, { useState, useCallback, useEffect } from 'react'
 import {
   View,
@@ -20,7 +19,7 @@ import LinearGradient from 'react-native-linear-gradient'
 import { IonIcon } from '../../components/shared/IonIcon'
 import { Header } from '../../components/shared/header/Header'
 
-import { useRecipes } from '../../../contexts/RecipesContext' // <- IMPORTANTE
+import { useRecipes } from '../../../contexts/RecipesContext'
 
 const { width } = Dimensions.get('window')
 const POP_CARD_WIDTH = (width - 32 - 12 * 2) / 3
@@ -31,9 +30,6 @@ export const HomeScreen = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [refreshing, setRefreshing] = useState(false)
 
-  // =============================
-  //  NECESARIOS DEL CONTEXT 👇
-  // =============================
   const {
     allRecipes,
     popularRecipes,
@@ -41,6 +37,7 @@ export const HomeScreen = () => {
     toggleFavorite,
     refreshAll,
     getAllRatings,
+    allRatings,
   } = useRecipes();
 
   useFocusEffect(
@@ -79,8 +76,10 @@ export const HomeScreen = () => {
   )
 
   const renderRecipe = ({ item }) => {
-    console.log('CONSOLE item: ', item);
     const isFav = favorites.has(item.id)
+    const ratingObj = allRatings.find(r => r.receta_id === item.id)
+    const avgRating = ratingObj?.averageRating ?? 0
+
     return (
       <Pressable
         style={styles.recipeCard}
@@ -88,8 +87,7 @@ export const HomeScreen = () => {
         <Image source={item.image} style={styles.recipeImage} />
         <View style={styles.ratingBadge}>
           <IonIcon name="star" size={12} color="#FFD700" />
-          {/* <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text> */}
-          <Text style={styles.ratingText}>{3.12.toFixed(1)}</Text>
+          <Text style={styles.ratingText}>{avgRating.toFixed(1)}</Text>
         </View>
         <View style={styles.recipeInfo}>
           <Text style={styles.recipeTitle}>{item.title}</Text>

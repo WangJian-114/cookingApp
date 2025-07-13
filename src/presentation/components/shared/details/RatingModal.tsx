@@ -1,13 +1,11 @@
-// src/presentation/components/shared/details/RatingModal.tsx
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, Pressable, TouchableOpacity, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 const PRIMARY_COLOR = '#FDBA74';
 const STAR_COLOR = '#FFC700';
 
-
+// Barra de distribución de cada calificación (5★→1★)
 const RatingBar = ({ stars, count, total }) => {
   const percentage = total > 0 ? (count / total) * 100 : 0;
   return (
@@ -21,33 +19,38 @@ const RatingBar = ({ stars, count, total }) => {
   );
 };
 
-
+// Muestra promedio general en estrellas
 const StarDisplay = ({ rating, size = 16 }) => {
   const stars = [];
   for (let i = 1; i <= 5; i++) {
     let name = 'star-outline';
-    if (i <= rating) {
-      name = 'star';
-    } else if (i - 0.5 <= rating) {
-      name = 'star-half-sharp';
-    }
+    if (i <= rating) name = 'star';
+    else if (i - 0.5 <= rating) name = 'star-half-sharp';
     stars.push(<Icon key={i} name={name} color={STAR_COLOR} size={size} />);
   }
   return <View style={{ flexDirection: 'row' }}>{stars}</View>;
 };
 
+export const RatingModal = ({
+  isVisible,
+  onClose,
+  ratingData: { count, average, distribution, userRating: initialUserRating },
+  onSubmit
+}) => {
+  // State interno inicializado con la calificación del usuario (si existe)
+  const [selectedStars, setSelectedStars] = useState<number>(initialUserRating ?? 0);
 
-export const RatingModal = ({ isVisible, onClose, ratingData, onSubmit }) => {
-  const { count, average, distribution } = ratingData; 
-  const [userRating, setUserRating] = useState(0);
-  console.log('CONSOLE ratingData: ', ratingData);
+  // Sincroniza si initialUserRating cambia tras montarse
+  useEffect(() => {
+    setSelectedStars(initialUserRating ?? 0);
+  }, [initialUserRating]);
+
   const handleSubmit = () => {
-    if (userRating === 0) {
+    if (selectedStars === 0) {
       Alert.alert('Sin calificación', 'Por favor, selecciona de 1 a 5 estrellas.');
       return;
     }
-    onSubmit(userRating);
-    // setUserRating(0);
+    onSubmit(selectedStars);
     onClose();
   };
 
@@ -73,17 +76,12 @@ export const RatingModal = ({ isVisible, onClose, ratingData, onSubmit }) => {
 
           {/* Distribución de Calificaciones */}
           <View style={styles.distributionContainer}>
-            {[5,4,3,2,1].map((star) => {
+            {[5, 4, 3, 2, 1].map(star => {
               const bucket = distribution?.find(d => d.star === star);
               const c = bucket?.count ?? 0;
               return (
-                <RatingBar
-                  key={star}
-                  stars={star}
-                  count={c}
-                  total={count}
-                />
-              )
+                <RatingBar key={star} stars={star} count={c} total={count} />
+              );
             })}
           </View>
 
@@ -91,10 +89,10 @@ export const RatingModal = ({ isVisible, onClose, ratingData, onSubmit }) => {
 
           {/* Input de Estrellas del Usuario */}
           <View style={styles.userRatingContainer}>
-            {[1, 2, 3, 4, 5].map((star) => (
-              <TouchableOpacity key={star} onPress={() => setUserRating(star)}>
+            {[1, 2, 3, 4, 5].map(star => (
+              <TouchableOpacity key={star} onPress={() => setSelectedStars(star)}>
                 <Icon
-                  name={star <= userRating ? 'star' : 'star-outline'}
+                  name={star <= selectedStars ? 'star' : 'star-outline'}
                   size={36}
                   color={STAR_COLOR}
                 />
@@ -113,8 +111,24 @@ export const RatingModal = ({ isVisible, onClose, ratingData, onSubmit }) => {
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContainer: { width: '90%', backgroundColor: '#F5EFE6', borderRadius: 20, padding: 25, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  modalContainer: {
+    width: '90%',
+    backgroundColor: '#F5EFE6',
+    borderRadius: 20,
+    padding: 25,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5
+  },
   title: { fontSize: 22, fontWeight: 'bold', color: '#333', marginBottom: 15 },
   averageContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   averageRating: { fontSize: 24, fontWeight: 'bold', color: '#333', marginRight: 8 },

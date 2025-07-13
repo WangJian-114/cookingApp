@@ -74,6 +74,17 @@ export const DetailsScreen = () => {
     Alert.alert('¡Gracias!', `Has calificado con ${userRating} estrellas.`);
   }
 
+  const fetchRating = async () => {
+    try {
+
+      const res = await api.get(`/rating/${recipeId}/rating`);
+      await getRatings(recipeId);
+    } catch (e: any) {
+      console.error('Error cargando rating:', e.response?.status, e.message);
+      Alert.alert('Error', 'No se pudo cargar la calificación.');
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -180,14 +191,19 @@ export const DetailsScreen = () => {
             <TouchableOpacity style={styles.infoBarItem} onPress={() => setRatingVisible(true)}>
               <Icon name="star" color="#FFC700" size={18} />
               <Text style={styles.infoBarText}>
-                {rating?.rating.toFixed(1)} ({rating?.totalCount || 0})
+                {rating && rating.rating != null
+                  ? rating.rating.toFixed(1)
+                  : '0.0'
+                } ({rating?.totalCount ?? 0})
               </Text>
             </TouchableOpacity>
 
-            <View style={styles.infoBarItem}>
-              <Icon name="heart" color="red" size={18} />
-              <Text style={styles.infoBarText}>{recipe.likes || 0}</Text>
-            </View>
+            {/*
+              <View style={styles.infoBarItem}>
+                <Icon name="heart" color="red" size={18} />
+                <Text style={styles.infoBarText}>{recipe.likes || 0}</Text>
+              </View>
+            */}
 
             <TouchableOpacity style={styles.infoBarItem} onPress={handleOpenComments}>
               <Icon name="chatbubble-ellipses-outline" color="#888" size={18} />
@@ -247,6 +263,7 @@ export const DetailsScreen = () => {
           average: rating?.rating,
           count: rating?.totalCount,
           distribution: rating?.distribution,
+          userRating:   rating?.userRating
         }}
         onSubmit={handleRatingSubmit}
       />
