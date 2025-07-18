@@ -13,6 +13,7 @@ import { FavoritesProvider } from './src/contexts/FavoritesContext';
 import { ProfileProvider } from './src/contexts/ProfileContext';
 import { NotificationsProvider } from './src/contexts/NotificationsContext';
 import { SearchProvider } from './src/contexts/SearchContext';
+import { MyRecipesProvider } from './src/contexts/MyRecipesContext';
 
 
 export default function App() {
@@ -23,15 +24,17 @@ export default function App() {
           <AuthProvider>
             <ProfileProvider>
               <RecipesProvider>
-                <FavoritesProvider>
-                  <SearchProvider>
-                    <NotificationsProvider>
-                      <NavigationContainer>
-                        <RootNavigator />
-                      </NavigationContainer>
-                    </NotificationsProvider>
-                  </SearchProvider>
-                </FavoritesProvider>
+                <MyRecipesProvider>
+                  <FavoritesProvider>
+                    <SearchProvider>
+                      <NotificationsProvider>
+                        <NavigationContainer>
+                          <RootNavigator />
+                        </NavigationContainer>
+                      </NotificationsProvider>
+                    </SearchProvider>
+                  </FavoritesProvider>
+                </MyRecipesProvider>
               </RecipesProvider>
             </ProfileProvider>
           </AuthProvider>
