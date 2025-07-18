@@ -1,5 +1,4 @@
 // src/screens/recipes/RecipeEditScreen.tsx
-
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -21,7 +20,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { launchImageLibrary, Asset } from 'react-native-image-picker';
 import LinearGradient from 'react-native-linear-gradient';
 import { Header } from '../../components/shared/header/Header';
-import api from '../../../services/api';
+import { useMyRecipes } from '../../../contexts/MyRecipesContext';
 
 interface Ingrediente {
   nombre: string;
@@ -29,23 +28,8 @@ interface Ingrediente {
   unidad: string;
 }
 
-type Recipe = {
-  _id: string;
-  titulo: string;
-  descripcion: string;
-  instrucciones: string;
-  tiempo_preparacion: number;
-  dificultad: 'Fácil' | 'Media' | 'Difícil';
-  porciones: number;
-  ingredientes: Ingrediente[];
-  imagen?: string;
-  autor_id: string;
-  fecha_creacion: string;
-};
-
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Selector de unidad
 const UnitSelector: React.FC<{
   visible: boolean;
   onClose: () => void;
@@ -198,21 +182,13 @@ const ImagePickerSection: React.FC<{ photo: Asset | null; onPick: () => void; cu
   </TouchableOpacity>
 );
 
-// Servicio para obtener receta por ID
-const getRecipeById = async (id: string): Promise<Recipe | null> => {
-  try {
-    const res = await api.get(`/receta/getRecetaById/${id}`);
-    return res.data.receta || res.data;
-  } catch (e) {
-    console.error('Error fetching recipe:', e);
-    return null;
-  }
-};
-
 export const RecipeEditScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
   const { recipeId } = route.params as { recipeId: string };
+
+  // Usar el context en lugar de llamadas directas a la API
+  const { getRecipeById, updateRecipe, loading: contextLoading, error, clearError } = useMyRecipes();
 
   const [titulo, setTitulo] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -228,102 +204,162 @@ export const RecipeEditScreen = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // Cargo los datos de la receta al montar
+  // Ahora usamos context para la carga de recetas
   useEffect(() => {
-    (async () => {
+    const loadRecipe = async () => {
       if (!recipeId) return;
+
       setLoading(true);
-      const rec = await getRecipeById(recipeId);
-      if (!rec) {
+      clearError();
+
+      const recipe = await getRecipeById(recipeId);
+
+      if (!recipe) {
         Alert.alert('Error', 'No se pudo cargar la receta');
         navigation.goBack();
         return;
       }
-      setTitulo(rec.titulo);
-      setDescripcion(rec.descripcion || '');
-      setInstrucciones(rec.instrucciones || '');
-      setTiempoPreparacion(String(rec.tiempo_preparacion || 30));
-      setPorciones(String(rec.porciones || 4));
-      setDificultad(rec.dificultad || 'Fácil');
-      setCurrentImageUrl(rec.imagen || '');
-      if (rec.ingredientes?.length) {
+
+      setTitulo(recipe.titulo);
+      setDescripcion(recipe.descripcion || '');
+      setInstrucciones(recipe.instrucciones || '');
+      setTiempoPreparacion(String(recipe.tiempo_preparacion || 30));
+      setPorciones(String(recipe.porciones || 4));
+      setDificultad(recipe.dificultad || 'Fácil');
+      setCurrentImageUrl(recipe.imagen || '');
+
+      if (recipe.ingredientes?.length) {
         setIngredientes(
-          rec.ingredientes.map(i => ({
-            nombre: i.nombre || '',
-            cantidad: String(i.cantidad) || '',
-            unidad: i.unidad || 'gr',
+          recipe.ingredientes.map(ing => ({
+            nombre: ing.nombre || '',
+            cantidad: String(ing.cantidad) || '',
+            unidad: ing.unidad || 'gr',
           }))
         );
       }
-      setLoading(false);
-    })();
-  }, [recipeId]);
 
-  // Validación sencilla
+      setLoading(false);
+    };
+
+    loadRecipe();
+  }, [recipeId, getRecipeById, clearError, navigation]);
+
+
+  useEffect(() => {
+    if (error) {
+      Alert.alert('Error', error);
+      clearError();
+    }
+  }, [error, clearError]);
+
+  // Validaciones de formulario
   const validateForm = (): string | null => {
     if (!titulo.trim()) return 'El título de la receta es requerido';
-    const validIngs = ingredientes.filter(i => i.nombre && i.cantidad && i.unidad);
-    if (validIngs.length === 0) return 'Agrega al menos un ingrediente completo';
-    if (isNaN(+tiempoPreparacion) || +tiempoPreparacion <= 0) return 'Tiempo mayor a 0';
-    if (isNaN(+porciones) || +porciones <= 0) return 'Porciones mayor a 0';
+
+    const validIngredients = ingredientes.filter(i => i.nombre && i.cantidad && i.unidad);
+    if (validIngredients.length === 0) return 'Agrega al menos un ingrediente completo';
+
+    if (isNaN(+tiempoPreparacion) || +tiempoPreparacion <= 0) return 'Tiempo debe ser mayor a 0';
+    if (isNaN(+porciones) || +porciones <= 0) return 'Porciones debe ser mayor a 0';
+
     return null;
   };
 
   const handleSave = async () => {
-    const err = validateForm();
-    if (err) {
-      Alert.alert('Error de validación', err);
+    const validationError = validateForm();
+    if (validationError) {
+      Alert.alert('Error de validación', validationError);
       return;
     }
+
     setSaving(true);
+
     try {
-      const formData = new FormData();
-      formData.append('titulo', titulo.trim());
-      formData.append('descripcion', descripcion.trim());
-      formData.append('instrucciones', instrucciones.trim());
-      formData.append('tiempo_preparacion', tiempoPreparacion);
-      formData.append('dificultad', dificultad);
-      formData.append('porciones', porciones);
-      formData.append(
-        'ingredientes',
-        JSON.stringify(
-          ingredientes
-            .filter(i => i.nombre && i.cantidad && i.unidad)
-            .map(i => ({
-              nombre: i.nombre.trim(),
-              cantidad: parseFloat(i.cantidad) || 1,
-              unidad: i.unidad.trim(),
-            }))
-        )
-      );
-      if (photo?.uri) {
-        formData.append('media', {
-          uri: photo.uri,
+      const recipeData = {
+        titulo: titulo.trim(),
+        descripcion: descripcion.trim(),
+        instrucciones: instrucciones.trim(),
+        tiempo_preparacion: parseInt(tiempoPreparacion),
+        dificultad,
+        porciones: parseInt(porciones),
+        ingredientes: ingredientes
+          .filter(i => i.nombre && i.cantidad && i.unidad)
+          .map(i => ({
+            nombre: i.nombre.trim(),
+            cantidad: i.cantidad,
+            unidad: i.unidad.trim(),
+          })),
+        photo: photo ? {
+          uri: photo.uri!,
           type: photo.type || 'image/jpeg',
-          name: photo.fileName || `photo_${Date.now()}.jpg`,
-        } as any);
-      }
+          fileName: photo.fileName || `photo_${Date.now()}.jpg`,
+        } : undefined,
+      };
 
-      const resp = await api.put(`/receta/update/${recipeId}`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 30000,
-      });
+      const success = await updateRecipe(recipeId, recipeData);
 
-      if (resp.status === 200) {
+      if (success) {
         Alert.alert('¡Éxito!', 'Receta actualizada correctamente', [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
       } else {
         Alert.alert('Error', 'No se pudo actualizar la receta');
       }
-    } catch (e: any) {
-      console.error('Error updating recipe:', e);
-      Alert.alert('Error', e.response?.data?.message || 'Error actualizando receta');
+    } catch (err) {
+      console.error('Error updating recipe:', err);
+      Alert.alert('Error', 'Error inesperado al actualizar la receta');
     } finally {
       setSaving(false);
     }
   };
 
+  const handleImagePick = async () => {
+    // Solicitamos permisos para android
+    if (Platform.OS === 'android' && Platform.Version < 33) {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+        {
+          title: 'Permiso para fotos',
+          message: 'Necesitamos acceso a tu galería para seleccionar una imagen.',
+          buttonPositive: 'Ok',
+        }
+      );
+      if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+        Alert.alert('Permiso denegado', 'No podemos abrir la galería sin permisos.');
+        return;
+      }
+    }
+
+    launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, response => {
+      if (response.didCancel) return;
+
+      if (response.errorCode) {
+        Alert.alert('Error', response.errorMessage || 'No se pudo abrir la galería');
+        return;
+      }
+
+      if (response.assets?.length) {
+        setPhoto(response.assets[0]);
+      }
+    });
+  };
+
+  // Funciones para manejar ingredientes
+  const handleIngredientChange = (index: number, field: keyof Ingrediente, value: string) => {
+    const updatedIngredients = [...ingredientes];
+    updatedIngredients[index][field] = value;
+    setIngredientes(updatedIngredients);
+  };
+
+  const handleAddIngredient = () => {
+    setIngredientes([...ingredientes, { nombre: '', cantidad: '', unidad: 'gr' }]);
+  };
+
+  const handleRemoveIngredient = (index: number) => {
+    setIngredientes(ingredientes.filter((_, idx) => idx !== index));
+  };
+
+  // Mostrar loading mientras se carga la receta
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -348,7 +384,7 @@ export const RecipeEditScreen = () => {
       >
         <Header />
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Inputs y selectores */}
+          {/* Título */}
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
@@ -359,6 +395,7 @@ export const RecipeEditScreen = () => {
             />
           </View>
 
+          {/* Descripción */}
           <View style={styles.inputContainer}>
             <TextInput
               style={[styles.input, styles.descriptionInput]}
@@ -370,6 +407,7 @@ export const RecipeEditScreen = () => {
             />
           </View>
 
+          {/* Instrucciones */}
           <View style={styles.inputContainer}>
             <TextInput
               style={[styles.input, styles.descriptionInput]}
@@ -381,6 +419,7 @@ export const RecipeEditScreen = () => {
             />
           </View>
 
+          {/* Tiempo y Porciones */}
           <View style={styles.rowContainer}>
             <View style={styles.halfInputContainer}>
               <Text style={styles.inputLabel}>Tiempo (min)</Text>
@@ -406,47 +445,28 @@ export const RecipeEditScreen = () => {
             </View>
           </View>
 
-          <DifficultySelector selected={dificultad} onSelect={setDificultad} />
-          <IngredientList
-            items={ingredientes}
-            onAdd={() => setIngredientes([...ingredientes, { nombre: '', cantidad: '', unidad: 'gr' }])}
-            onChange={(i, f, v) => {
-              const arr = [...ingredientes];
-              arr[i][f] = v;
-              setIngredientes(arr);
-            }}
-            onRemove={i => setIngredientes(ingredientes.filter((_, idx) => idx !== i))}
+          {/* Selector de Dificultad */}
+          <DifficultySelector
+            selected={dificultad}
+            onSelect={(d) => setDificultad(d as 'Fácil' | 'Media' | 'Difícil')}
           />
 
+          {/* Lista de Ingredientes */}
+          <IngredientList
+            items={ingredientes}
+            onAdd={handleAddIngredient}
+            onChange={handleIngredientChange}
+            onRemove={handleRemoveIngredient}
+          />
+
+          {/* Selector de Imagen */}
           <ImagePickerSection
             photo={photo}
-            onPick={async () => {
-              if (Platform.OS === 'android' && Platform.Version < 33) {
-                const granted = await PermissionsAndroid.request(
-                  PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-                  {
-                    title: 'Permiso para fotos',
-                    message: 'Necesitamos seleccionar una imagen de tu galería.',
-                    buttonPositive: 'Ok',
-                  }
-                );
-                if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
-                  Alert.alert('Permiso denegado', 'No podemos abrir la galería.');
-                  return;
-                }
-              }
-              launchImageLibrary({ mediaType: 'photo', quality: 0.8 }, resp => {
-                if (resp.didCancel) return;
-                if (resp.errorCode) {
-                  Alert.alert('Error', resp.errorMessage || 'No se pudo abrir la galería');
-                  return;
-                }
-                if (resp.assets?.length) setPhoto(resp.assets[0]);
-              });
-            }}
+            onPick={handleImagePick}
             currentImageUrl={currentImageUrl}
           />
 
+          {/* Botón de Guardar */}
           <TouchableOpacity
             style={[styles.saveButton, saving && styles.savingButton]}
             onPress={handleSave}

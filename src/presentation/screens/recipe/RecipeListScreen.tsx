@@ -8,8 +8,10 @@ import {
   Dimensions,
   Pressable,
   Image,
-  ImageSourcePropType,
   RefreshControl,
+  Modal,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Searchbar } from 'react-native-paper';
@@ -18,124 +20,207 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import LinearGradient from 'react-native-linear-gradient';
 import { IonIcon } from '../../components/shared/IonIcon';
 import { Header } from '../../components/shared/header/Header';
-
 import { RecipesStackParamList } from '../../navigation/RecipesStackNavigator';
-import api from '../../../services/api'
-
-const sampleImage: ImageSourcePropType = require('../../../assets/milanesacpure.png');
-
-type Ingredient = {
-  nombre: string;
-  cantidad: number;
-  unidad: string;
-};
-
-type Author = {
-  _id: string;
-  name: string;
-  email: string;
-};
-
-type Recipe = {
-  _id: string;
-  titulo: string;
-  descripcion?: string;
-  instrucciones?: string;
-  tiempo_preparacion?: number;
-  dificultad?: 'Fácil' | 'Media' | 'Difícil';
-  fecha_creacion?: string; // Mongo devuelve date ISO
-  imagen?: string;
-  autor_id: Author;
-  porciones?: number;
-  ingredientes?: Ingredient[];
-  valoraciones?: string[]; // Si solo tenemos los IDs
-};
-
+import { useMyRecipes } from '../../../contexts/MyRecipesContext';
+import { RecipeFilter } from '../../components/shared/RecipeFilter';
 
 type RecipesListScreenNavigationProp = StackNavigationProp<
   RecipesStackParamList,
   'RecipesList'
 >;
 
-const { width } = Dimensions.get('window');
 
 export const RecipesListScreen = () => {
   const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
+  const [menuVisible, setMenuVisible] = useState<string | null>(null);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [recipeToDelete, setRecipeToDelete] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
+  const [showFilter, setShowFilter] = useState(false);
+  const [displayedRecipes, setDisplayedRecipes] = useState<any[]>([]);
+  const [isFiltered, setIsFiltered] = useState(false);
 
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const {
+    recipes,
+    loading,
+    error,
+    deleteRecipe,
+    refreshRecipes,
+    clearError
+  } = useMyRecipes();
 
-  console.log(recipes)
+  useEffect(() => {
+    if (!isFiltered) {
+      setDisplayedRecipes(recipes);
+    }
+  }, [recipes, isFiltered]);
 
-    useEffect(() => {
-      navigation.setOptions({ headerShown: false });
-      fetchRecipes();
-    }, [navigation, fetchRecipes]);
+  useEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
 
-    const fetchRecipes = useCallback(async () => {
-      try {
-        const response = await api.get('/receta/misRecetas');
-        setRecipes(response.data);
-      } catch (error) {
-        console.error('Error fetching recipes:', error);
-      }
-    }, []);
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      refreshRecipes();
+    });
 
-    const onRefresh = useCallback(async () => {
-      setRefreshing(true);
-      try {
-        await fetchRecipes();
-      } finally {
-        setRefreshing(false);
-      }
-    }, [fetchRecipes]); //Actualizar cada que se añada un nuevo receta
+    return unsubscribe;
+  }, [navigation, refreshRecipes]);
+
+  useEffect(() => {
+    if (error) {
+      Alert.alert('Error', error, [
+        { text: 'OK', onPress: clearError }
+      ]);
+    }
+  }, [error, clearError]);
+
+  const onRefresh = useCallback(async () => {
+    await refreshRecipes();
+  }, [refreshRecipes]);
 
   const navigateToDetails = (recipeId: string) => {
     navigation.navigate('DetailsScreen', { recipeId });
   };
 
-  const filtered = recipes.filter(r =>
-    r.titulo.toLowerCase().includes(searchQuery.toLowerCase()));
+  const handleFilteredResults = (filteredRecipes: any[]) => {
+    setDisplayedRecipes(filteredRecipes);
+    setIsFiltered(true);
+  };
+
+  const clearFilters = () => {
+    setDisplayedRecipes(recipes);
+    setIsFiltered(false);
+  };
+
+  const searchFilteredRecipes = displayedRecipes
+    .filter(r => r && r.titulo && typeof r.titulo === 'string')
+    .filter(r => r.titulo.toLowerCase().includes(searchQuery.toLowerCase()));
 
   const viewRecipeDetails = (recipeId: string) => {
     navigation.navigate('DetailsScreen', { recipeId });
   };
 
-
   const editRecipe = (recipeId: string) => {
+    setMenuVisible(null);
     navigation.navigate('RecipeEdit', { recipeId: recipeId });
   };
 
-const renderItem = ({ item }: { item: Recipe }) => (
-  <Pressable style={styles.recipeCard} onPress={() => viewRecipeDetails(item._id)}>
-    <Image
-      source={
-        item.imagen
-          ? { uri: item.imagen }
-          : require('../../../assets/milanesacpure.png') // fallback
+  const handleDeleteRecipe = async (recipeId: string) => {
+    setMenuVisible(null);
+    setRecipeToDelete(recipeId);
+    setDeleteConfirmVisible(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!recipeToDelete) return;
+
+    const success = await deleteRecipe(recipeToDelete);
+
+    if (success) {
+      Alert.alert('Éxito', 'Receta eliminada correctamente');
+      if (isFiltered) {
+        setDisplayedRecipes(prev => prev.filter(r => r._id !== recipeToDelete));
       }
-      style={styles.recipeImage}
-    />
+    }
 
-    <View style={styles.recipeContent}>
-      <View style={styles.recipeInfo}>
-        <Text style={styles.recipeTitle}>{item.titulo}</Text>
-        <Text style={styles.recipeDesc} numberOfLines={4}>
-          {item.descripcion}
-        </Text>
-      </View>
+    setDeleteConfirmVisible(false);
+    setRecipeToDelete(null);
+  };
 
-      <Pressable
-        style={styles.editButton}
-        onPress={() => editRecipe(item._id)}
-      >
-        <IonIcon name="create-outline" size={20} color="#E9A300" />
+  const cancelDelete = () => {
+    setDeleteConfirmVisible(false);
+    setRecipeToDelete(null);
+  };
+
+  const toggleMenu = (recipeId: string, event: any) => {
+    if (menuVisible === recipeId) {
+      setMenuVisible(null);
+      return;
+    }
+
+    // Obtener la posición del botón
+    event.target.measure((fx: number, fy: number, width: number, height: number, px: number, py: number) => {
+      const screenWidth = Dimensions.get('window').width;
+      const screenHeight = Dimensions.get('window').height;
+      const menuWidth = 140;
+      const menuHeight = 100;
+
+      let x = px + width + 8;
+      let y = py - 5;
+
+      if (x + menuWidth > screenWidth) {
+        x = px - menuWidth - 8;
+      }
+      if (x < 10) {
+        x = px - (menuWidth / 2) + (width / 2);
+      }
+
+      if (y + menuHeight > screenHeight) {
+        y = py - menuHeight + height + 5;
+      }
+      if (y < 0) {
+        y = py + height + 5;
+      }
+      setMenuPosition({ x, y });
+      setMenuVisible(recipeId);
+    });
+  };
+
+  const closeMenu = () => {
+    setMenuVisible(null);
+  };
+
+  const openFilter = () => {
+    setShowFilter(true);
+  };
+
+  const closeFilter = () => {
+    setShowFilter(false);
+  };
+
+  const renderItem = ({ item }: { item: any }) => {
+    if (!item || !item._id || !item.titulo) {
+      console.warn('Item inválido encontrado:', item);
+      return null;
+    }
+
+    return (
+      <Pressable style={styles.recipeCard} onPress={() => viewRecipeDetails(item._id)}>
+        <Image
+          source={
+            item.imagen
+              ? { uri: item.imagen }
+              : require('../../../assets/milanesacpure.png')
+          }
+          style={styles.recipeImage}
+        />
+
+        <View style={styles.recipeContent}>
+          <View style={styles.recipeInfo}>
+            <Text style={styles.recipeTitle}>{item.titulo}</Text>
+            <Text style={styles.recipeDesc} numberOfLines={4}>
+              {item.descripcion || 'Sin descripción'}
+            </Text>
+            {/* Mostrar el autor si existe */}
+            {item.autor && (
+              <Text style={styles.recipeAuthor}>Por: {item.autor}</Text>
+            )}
+          </View>
+
+          <View style={styles.menuContainer}>
+            <Pressable
+              style={styles.menuButton}
+              onPress={(event) => toggleMenu(item._id, event)}
+            >
+              <IonIcon name="ellipsis-vertical" size={20} color="#E9A300" />
+            </Pressable>
+          </View>
+        </View>
       </Pressable>
-    </View>
-  </Pressable>
-);
-
+    );
+  };
 
   return (
     <LinearGradient
@@ -166,28 +251,140 @@ const renderItem = ({ item }: { item: Recipe }) => (
               )}
             />
           </LinearGradient>
-          <Pressable style={styles.filterButton}>
+          <Pressable style={styles.filterButton} onPress={openFilter}>
             <IonIcon name="options-outline" size={24} color="#333" />
           </Pressable>
         </View>
 
+        {/* Indicador de filtros activos */}
+        {isFiltered && (
+          <View style={styles.filterIndicator}>
+            <Text style={styles.filterIndicatorText}>
+              Mostrando {displayedRecipes.length} receta{displayedRecipes.length !== 1 ? 's' : ''} filtrada{displayedRecipes.length !== 1 ? 's' : ''}
+            </Text>
+            <TouchableOpacity onPress={clearFilters} style={styles.clearFilterButton}>
+              <Text style={styles.clearFilterText}>Limpiar filtros</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Recipes List */}
         <FlatList
-          data={filtered}
-          keyExtractor={item => item._id}
+          data={searchFilteredRecipes}
+          keyExtractor={(item, index) => item._id || `recipe-${index}`}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.listContainer}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl refreshing={loading} onRefresh={onRefresh} />
           }
           ListEmptyComponent={
             <Text style={styles.emptyText}>
-              No se encontraron recetas que coincidan con tu búsqueda.
+              {loading ? 'Cargando recetas...' : 'No se encontraron recetas que coincidan con tu búsqueda.'}
             </Text>
           }
         />
+
+        {/* Componente de filtro */}
+        <RecipeFilter
+          visible={showFilter}
+          onClose={closeFilter}
+          recipes={recipes}
+          onFilteredResults={handleFilteredResults}
+          allRatings={[]}
+          showUserSearch={false}
+        />
+
+        {/* Menú desplegable global - fuera del FlatList */}
+        {menuVisible && (
+          <Modal
+            transparent={true}
+            visible={true}
+            animationType="none"
+            onRequestClose={closeMenu}
+          >
+            <TouchableOpacity
+              style={styles.overlay}
+              activeOpacity={1}
+              onPress={closeMenu}
+            >
+              <View
+                style={[
+                  styles.menuDropdown,
+                  {
+                    position: 'absolute',
+                    top: menuPosition.y,
+                    left: menuPosition.x,
+                  }
+                ]}
+              >
+                <Pressable
+                  style={styles.menuItem}
+                  onPress={() => editRecipe(menuVisible)}
+                >
+                  <IonIcon name="create-outline" size={16} color="#333" />
+                  <Text style={styles.menuItemText}>Editar receta</Text>
+                </Pressable>
+
+                <View style={styles.menuSeparator} />
+
+                <Pressable
+                  style={styles.menuItem}
+                  onPress={() => handleDeleteRecipe(menuVisible)}
+                >
+                  <IonIcon name="trash-outline" size={16} color="#E74C3C" />
+                  <Text style={[styles.menuItemText, { color: '#E74C3C' }]}>
+                    Eliminar receta
+                  </Text>
+                </Pressable>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+        )}
+
+        {/* Modal de confirmación de eliminación */}
+        <Modal
+          transparent={true}
+          visible={deleteConfirmVisible}
+          animationType="fade"
+          onRequestClose={cancelDelete}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.confirmModal}>
+              <LinearGradient
+                colors={['#FFF9E6', '#FFE0B2']}
+                style={styles.modalGradient}
+              >
+                <View style={styles.modalHeader}>
+                  <IonIcon name="warning" size={32} color="#E9A300" />
+                  <Text style={styles.modalTitle}>Eliminar receta</Text>
+                </View>
+
+                <Text style={styles.modalMessage}>
+                  ¿Estás seguro de que quieres eliminar esta receta?
+                  Esta acción no se puede deshacer.
+                </Text>
+
+                <View style={styles.modalButtons}>
+                  <Pressable
+                    style={[styles.modalButton, styles.cancelButton]}
+                    onPress={cancelDelete}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancelar</Text>
+                  </Pressable>
+
+                  <Pressable
+                    style={[styles.modalButton, styles.deleteButton]}
+                    onPress={confirmDelete}
+                  >
+                    <Text style={styles.deleteButtonText}>Eliminar</Text>
+                  </Pressable>
+                </View>
+              </LinearGradient>
+            </View>
+          </View>
+        </Modal>
       </SafeAreaView>
     </LinearGradient>
   );
@@ -220,6 +417,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#E9A300',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // Estilos para el indicador de filtros
+  filterIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 8,
+  },
+  filterIndicatorText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '500',
+  },
+  clearFilterButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  clearFilterText: {
+    fontSize: 14,
+    color: '#E9A300',
+    fontWeight: 'bold',
   },
 
   listContainer: {
@@ -268,8 +492,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
     lineHeight: 18,
+    marginBottom: 4,
   },
-  editButton: {
+  recipeAuthor: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+
+  // Estilos del menú
+  menuContainer: {
+    position: 'relative',
+  },
+  menuButton: {
     padding: 8,
     marginTop: -4,
     backgroundColor: '#FFF',
@@ -282,6 +517,139 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+  },
+  menuDropdown: {
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    minWidth: 140,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 15,
+    zIndex: 9999,
+    maxWidth: 160,
+    overflow: 'hidden',
+  },
+
+  menuDropdownWithArrow: {
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    minWidth: 140,
+    maxWidth: 160,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 15,
+    zIndex: 9999,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+  },
+
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  menuItemText: {
+    marginLeft: 10,
+    fontSize: 15,
+    color: '#333',
+    fontWeight: '500',
+  },
+  menuSeparator: {
+    height: 1,
+    backgroundColor: '#E5E5E5',
+    marginHorizontal: 16,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Estilos del modal de confirmación
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  confirmModal: {
+    width: '90%',
+    maxWidth: 340,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  modalGradient: {
+    padding: 24,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 8,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#DDD',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  deleteButton: {
+    backgroundColor: '#E74C3C',
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFF',
   },
 
   emptyText: {
