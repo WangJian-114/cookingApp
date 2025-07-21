@@ -18,6 +18,7 @@ import {
 import LinearGradient from 'react-native-linear-gradient'
 import { IonIcon } from '../../components/shared/IonIcon'
 import { Header } from '../../components/shared/header/Header'
+import { RecipeFilter } from '../../components/shared/RecipeFilter'
 
 import { useRecipes } from '../../../contexts/RecipesContext'
 
@@ -29,6 +30,9 @@ export const HomeScreen = () => {
   const navigation = useNavigation();
   const [searchQuery, setSearchQuery] = useState('')
   const [refreshing, setRefreshing] = useState(false)
+  const [showFilter, setShowFilter] = useState(false)
+  const [displayedRecipes, setDisplayedRecipes] = useState([])
+  const [isFiltered, setIsFiltered] = useState(false) 
 
   const {
     allRecipes,
@@ -50,18 +54,41 @@ export const HomeScreen = () => {
     getAllRatings();
   }, [allRecipes, getAllRatings]);
 
+  useEffect(() => {
+    if (!isFiltered) {
+      setDisplayedRecipes(allRecipes);
+    }
+  }, [allRecipes, isFiltered]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true)
     await refreshAll();
     setRefreshing(false)
   }, [refreshAll])
 
-  const navigateToDetails = (recipeId: string) =>
-    navigation.navigate('DetailsScreen' as never, { recipeId } as never)
+  const navigateToDetails = (recipeId) =>
+    navigation.navigate('DetailsScreen', { recipeId })
 
-  const filtered = allRecipes.filter(r =>
-    r.title.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // Manejar resultados del filtro
+  const handleFilteredResults = (filteredRecipes) => {
+    setDisplayedRecipes(filteredRecipes);
+    setIsFiltered(true);
+  };
+
+  // Limpiar filtros
+  const handleClearFilters = () => {
+    setDisplayedRecipes(allRecipes);
+    setIsFiltered(false);
+    setSearchQuery('');
+  };
+
+  // Filtrar por el searchbar (la búsqueda simple)
+  const recipesToShow = searchQuery.trim()
+    ? displayedRecipes.filter(r =>
+      r.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      r.description.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    : displayedRecipes;
 
   const renderPopular = ({ item }) => (
     <Pressable
@@ -138,10 +165,28 @@ export const HomeScreen = () => {
               )}
             />
           </LinearGradient>
-          <Pressable style={styles.filterButton}>
+          <Pressable
+            style={[
+              styles.filterButton,
+              isFiltered && styles.filterButtonActive
+            ]}
+            onPress={() => setShowFilter(true)}>
             <IonIcon name="options-outline" size={24} color="#333" />
+            {isFiltered && <View style={styles.filterIndicator} />}
           </Pressable>
         </View>
+
+        {/* Indicador de filtros activos */}
+        {isFiltered && (
+          <View style={styles.activeFiltersContainer}>
+            <Text style={styles.activeFiltersText}>
+              {recipesToShow.length} receta{recipesToShow.length !== 1 ? 's' : ''} encontrada{recipesToShow.length !== 1 ? 's' : ''}
+            </Text>
+            <Pressable onPress={handleClearFilters}>
+              <Text style={styles.clearFiltersText}>Limpiar filtros</Text>
+            </Pressable>
+          </View>
+        )}
 
         {/* Populares */}
         <Text style={styles.sectionTitle}>RECETAS MÁS POPULARES</Text>
@@ -157,7 +202,7 @@ export const HomeScreen = () => {
         {/* Todas */}
         <Text style={styles.sectionTitle}>TODAS LAS RECETAS</Text>
         <FlatList
-          data={filtered}
+          data={recipesToShow}
           keyExtractor={i => i.id}
           renderItem={renderRecipe}
           numColumns={2}
@@ -167,6 +212,16 @@ export const HomeScreen = () => {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
+        />
+
+        {/* Componente de filtro */}
+        <RecipeFilter
+          visible={showFilter}
+          onClose={() => setShowFilter(false)}
+          recipes={allRecipes}
+          onFilteredResults={handleFilteredResults}
+          allRatings={allRatings}
+          showUserSearch={true}
         />
       </SafeAreaView>
     </LinearGradient>
@@ -188,6 +243,40 @@ const styles = StyleSheet.create({
     backgroundColor: '#E9A300',
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+  },
+  filterButtonActive: {
+    backgroundColor: '#D2691E',
+  },
+  filterIndicator: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF4444',
+  },
+  activeFiltersContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+    marginHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  activeFiltersText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  clearFiltersText: {
+    fontSize: 14,
+    color: '#E9A300',
+    fontWeight: 'bold',
   },
   sectionTitle: {
     fontSize: 16,

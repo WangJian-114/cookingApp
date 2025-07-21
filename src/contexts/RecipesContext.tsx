@@ -43,6 +43,10 @@ export const RecipesProvider = ({ children }) => {
             id: r._id,
             title: r.titulo,
             description: r.descripcion,
+            dificultad: r.dificultad,
+            autor: r.autor_id.name,
+            fecha_creacion: r.fecha_creacion,
+            ingredientes: r.ingredientes,
             image: r.imagen ? { uri: r.imagen } : placeholderImage,
             rating: avg,
           };
@@ -112,7 +116,6 @@ export const RecipesProvider = ({ children }) => {
 
     const response = await api.get(`/rating/ratings`);
     setAllRatings(response.data.ratings);
-     console.log('Ratings cargados:', response.data.ratings);
     } catch (e) {
       console.log('Error: ', e);
     }
