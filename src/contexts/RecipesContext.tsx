@@ -61,6 +61,7 @@ export const RecipesProvider = ({ children }) => {
   const fetchFavorites = useCallback(async () => {
     try {
       const res = await api.get('/favs/misFavoritos');
+      console.log("CONSOLE res favorite: ", res);
       const favIds = new Set((res.data || []).map(r => r._id));
       setFavorites(favIds);
     } catch (err) {

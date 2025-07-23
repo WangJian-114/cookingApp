@@ -17,6 +17,8 @@ import NetInfo from '@react-native-community/netinfo';                   // ←-
 import { IonIcon } from '../../components/shared/IonIcon';
 import { loginStyles } from './styles/loginScreenStyles';
 import api from '../../../services/api';
+import { useAuth } from '../../../contexts/AuthContext';
+
 
 import type { RootStackParams } from '../../navigation/AuthNavigator';
 
@@ -28,6 +30,7 @@ export const LoginScreen = () => {
   const [password, setPassword]           = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [loading, setLoading]             = useState(false);
+  const { login } = useAuth();
 
   const togglePasswordVisibility = () => {
     setPasswordVisible(v => !v);
@@ -51,16 +54,17 @@ export const LoginScreen = () => {
     try {
       const { data } = await api.post('/auth/login', { email, password });
       // Guardamos los tokens
-      await AsyncStorage.setItem('ACCESS_TOKEN', data.accessToken);
-      await AsyncStorage.setItem('REFRESH_TOKEN', data.refreshToken);
-
-      // Navegamos al stack principal
-      navigation.dispatch(
-        CommonActions.reset({
-          index: 0,
-          routes: [{ name: 'MainApp' }]
-        })
-      );
+      // await AsyncStorage.setItem('ACCESS_TOKEN', data.accessToken);
+      // await AsyncStorage.setItem('REFRESH_TOKEN', data.refreshToken);
+      console.log("CHANGE!");
+      // // // Navegamos al stack principal
+      // navigation.dispatch(
+      //   CommonActions.reset({
+      //     index: 0,
+      //     routes: [{ name: 'MainApp' }]
+      //   })
+      // );
+      await login(data?.accessToken, data.refreshToken); 
     } catch (err: any) {
       console.error('Login error:', err);
 

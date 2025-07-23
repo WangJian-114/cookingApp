@@ -5,6 +5,7 @@ import { AuthNavigator } from './AuthNavigator';
 import { AppNavigator } from './AppNavigator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Loading from '../components/shared/Loading';
+import { useAuth } from '../../contexts/AuthContext';
 
 export type RootStackParams = {
   Auth: undefined
@@ -14,32 +15,20 @@ export type RootStackParams = {
 const Stack = createNativeStackNavigator<RootStackParams>();
 
 export default function RootNavigator() {
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [userToken, setUserToken] = useState(null);
-
-  useEffect(() => {
-    // AsyncStorage.clear();
-
-    const checkToken = async () => {
-      const token = await AsyncStorage.getItem('ACCESS_TOKEN');
-      setUserToken(token);
-      setIsLoading(false);
-    };
-    checkToken();
-  }, []);
-
-  if (isLoading) {
+  const { userToken, loading } = useAuth();
+  if (loading) {
     return <Loading />;
   }
 
   return (
     <Stack.Navigator
-      initialRouteName={userToken ? "MainApp" : "Auth"}
       screenOptions={{ headerShown: false }}
     >
-      <Stack.Screen name="Auth" component={AuthNavigator} />
-      <Stack.Screen name="MainApp" component={AppNavigator} />
+      {userToken ? (
+        <Stack.Screen name="MainApp" component={AppNavigator} />
+      ) : (
+        <Stack.Screen name="Auth" component={AuthNavigator} />
+      )}
     </Stack.Navigator>
   );
 }
