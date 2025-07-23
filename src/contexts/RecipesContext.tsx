@@ -61,13 +61,17 @@ export const RecipesProvider = ({ children }) => {
   const fetchFavorites = useCallback(async () => {
     try {
       const res = await api.get('/favs/misFavoritos');
-      console.log("CONSOLE res favorite: ", res);
-      const favIds = new Set((res.data || []).map(r => r._id));
+      const favIds = new Set(
+        (res.data || [])
+          .filter(r => r && r._id)
+          .map(r => r._id)
+      );
       setFavorites(favIds);
     } catch (err) {
       console.warn('❌ Error al cargar favoritos:', err);
     }
   }, []);
+
 
   // 4) Toggle favorito
   const toggleFavorite = useCallback(async (recipeId) => {
