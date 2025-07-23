@@ -8,6 +8,7 @@ import {
   Pressable,
   Image,
   RefreshControl,
+  ActivityIndicator,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Searchbar } from 'react-native-paper'
@@ -21,6 +22,7 @@ import { Header } from '../../components/shared/header/Header'
 import { RecipeFilter } from '../../components/shared/RecipeFilter'
 
 import { useRecipes } from '../../../contexts/RecipesContext'
+import { useNetwork } from '../../hooks/useNetwork'
 
 const { width } = Dimensions.get('window')
 const POP_CARD_WIDTH = (width - 32 - 12 * 2) / 3
@@ -81,6 +83,18 @@ export const HomeScreen = () => {
     setIsFiltered(false);
     setSearchQuery('');
   };
+
+  const isConnected = useNetwork();
+
+  if (isConnected === null) return <ActivityIndicator />;
+
+  if (!isConnected) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>No se puede usar la aplicación sin conexión.</Text>
+      </View>
+    );
+  }
 
   // Filtrar por el searchbar (la búsqueda simple)
   const recipesToShow = searchQuery.trim()

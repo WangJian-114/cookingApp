@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { CommonActions, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -21,6 +22,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 
 
 import type { RootStackParams } from '../../navigation/AuthNavigator';
+import { useNetwork } from '../../hooks/useNetwork';
 
 type AuthNavProp = NativeStackNavigationProp<RootStackParams, 'LoginScreen'>;
 
@@ -82,6 +84,18 @@ export const LoginScreen = () => {
   const handleForgot = () => {
     navigation.navigate('ForgotPasswordScreen');
   };
+
+  const isConnected = useNetwork();
+
+  if (isConnected === null) return <ActivityIndicator />;
+
+  if (!isConnected) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <Text>No se puede usar la aplicación sin conexión.</Text>
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={loginStyles.container}>
