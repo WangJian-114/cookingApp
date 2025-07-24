@@ -62,12 +62,25 @@ export const MyRecipesProvider: React.FC<MyRecipesProviderProps> = ({ children }
   const fetchRecipes = async () => {
     setLoading(true);
     setError(null);
+
     try {
       const response = await api.get('/receta/misRecetas');
-      setRecipes(response.data.recetas || response.data || []);
+      const recetas = response.data?.recetas ?? response.data ?? [];
+
+      if (!Array.isArray(recetas)) {
+        throw new Error('Formato de respuesta inesperado');
+      }
+
+      setRecipes(recetas);
     } catch (err: any) {
       console.error('Error fetching recipes:', err);
-      setError('Error al cargar las recetas');
+
+      const isCriticalError =
+        err.response?.status >= 400 || !err.response;
+
+      if (isCriticalError) {
+        setError('Error al cargar las recetas');
+      }
     } finally {
       setLoading(false);
     }
