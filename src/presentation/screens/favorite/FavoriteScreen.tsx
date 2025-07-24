@@ -8,24 +8,33 @@ import {
   Dimensions,
   Pressable,
   Image,
-  ImageSourcePropType,
   RefreshControl,
   Alert,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Searchbar } from 'react-native-paper'
 import LinearGradient from 'react-native-linear-gradient'
-
+import { RecipeFilter } from '../../components/shared/RecipeFilter';
 import api from '../../../services/api'
 import { IonIcon } from '../../components/shared/IonIcon'
 import { Header } from '../../components/shared/header/Header'
 
-type Recipe = {
-  id: string
-  title: string
-  description: string
-  image: ImageSourcePropType
-  rating: number
+interface Ingrediente {
+  nombre: string;
+  cantidad: string;
+  unidad: string;
+}
+
+interface DisplayedRecipe {
+  id: string;
+  title: string;
+  description: string;
+  dificultad: 'Fácil' | 'Media' | 'Difícil';
+  autor: string;
+  fecha_creacion: string;
+  ingredientes: Ingrediente[];
+  image: { uri: string } | typeof placeholderImage;
+  rating: number;
 }
 
 const placeholderImage = require('../../../assets/milanesacpure.png')
@@ -35,14 +44,16 @@ export const FavoriteScreen = () => {
   const navigation = useNavigation()
   const [searchQuery, setSearchQuery] = useState('')
   const [refreshing, setRefreshing] = useState(false)
-  const [recipes, setRecipes] = useState<Recipe[]>([])
+  const [showFilter, setShowFilter] = useState(false);
+  const [displayedRecipes, setDisplayedRecipes] = useState<DisplayedRecipe[]>([])
+  const [filteredRecipes, setFilteredRecipes] = useState<DisplayedRecipe[]>([])
+  const [isFiltered, setIsFiltered] = useState(false);
 
   // 1) Traer favoritos
   const fetchFavorites = async () => {
     try {
       const res = await api.get('/favs/misFavoritos')
       const raw = Array.isArray(res.data) ? res.data : []
-
       // 1) Filtrás todos los null/undefined
       const cleaned = raw.filter((r): r is NonNullable<typeof r> => r != null)
 
@@ -57,12 +68,19 @@ export const FavoriteScreen = () => {
           id: r._id,
           title: r.titulo,
           description: r.descripcion,
+          dificultad: r.dificultad,
+          autor: r.autor_id.name,
+          fecha_creacion: r.fecha_creacion,
+          ingredientes: r.ingredientes,
           image: r.imagen ? { uri: r.imagen } : placeholderImage,
           rating: avg,
         }
       })
 
-      setRecipes(mapped)
+      setDisplayedRecipes(mapped);
+      if (!isFiltered) {
+        setFilteredRecipes(mapped);
+      }
     } catch (err) {
       console.warn('❌ Error al cargar favoritos:', err)
       Alert.alert('Error', 'No pudimos cargar tus favoritos')
@@ -94,16 +112,26 @@ export const FavoriteScreen = () => {
     }
   }
 
+  const handleFilteredResults = (filtered: DisplayedRecipe[]) => {
+    setFilteredRecipes(filtered);
+    setIsFiltered(true);
+  }
+
+  const clearFilters = () => {
+    setFilteredRecipes(displayedRecipes);
+    setIsFiltered(false);
+  }
+
   useEffect(() => {
     navigation.setOptions({ headerShown: false })
   }, [navigation])
 
-  // filtro local por búsqueda
-  const filtered = recipes.filter(r =>
+
+  const searchFiltered = filteredRecipes.filter(r =>
     r.title.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const renderItem = ({ item }: { item: Recipe }) => (
+  const renderItem = ({ item }: { item: DisplayedRecipe }) => (
     <Pressable
       style={styles.recipeCard}
       onPress={() =>
@@ -116,6 +144,16 @@ export const FavoriteScreen = () => {
         <Text style={styles.recipeDesc} numberOfLines={3}>
           {item.description}
         </Text>
+        <View style={styles.recipeMetadata}>
+          <Text style={styles.recipeAuthor}>Por: {item.autor}</Text>
+          <Text style={styles.recipeDifficulty}>Dificultad: {item.dificultad}</Text>
+          {item.rating > 0 && (
+            <View style={styles.ratingContainer}>
+              <IonIcon name="star" size={12} color="#FFD700" />
+              <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+            </View>
+          )}
+        </View>
       </View>
       <Pressable
         style={styles.favoriteButton}
@@ -155,15 +193,30 @@ export const FavoriteScreen = () => {
               )}
             />
           </LinearGradient>
-          <Pressable style={styles.filterButton}>
-            <IonIcon name="options-outline" size={24} color="#333" />
+          <Pressable
+            style={[styles.filterButton, isFiltered && styles.filterButtonActive]}
+            onPress={() => setShowFilter(true)}
+          >
+            <IonIcon name="options-outline" size={24} color={isFiltered ? "#fff" : "#333"} />
           </Pressable>
         </View>
+
+        {/* Indicador de filtros activos */}
+        {isFiltered && (
+          <View style={styles.filterIndicator}>
+            <Text style={styles.filterIndicatorText}>
+              {filteredRecipes.length} de {displayedRecipes.length} recetas favoritas
+            </Text>
+            <Pressable onPress={clearFilters}>
+              <Text style={styles.clearFiltersText}>Limpiar filtros</Text>
+            </Pressable>
+          </View>
+        )}
 
         <Text style={styles.sectionTitle}>RECETAS FAVORITAS</Text>
 
         <FlatList
-          data={filtered}
+          data={searchFiltered}
           keyExtractor={item => item.id}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
@@ -172,11 +225,22 @@ export const FavoriteScreen = () => {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
             <Text style={styles.emptyText}>
-              {recipes.length === 0
+              {displayedRecipes.length === 0
                 ? 'Aún no tienes recetas favoritas.'
-                : 'No encontramos coincidencias.'}
+                : searchQuery.trim() !== ''
+                  ? 'No encontramos coincidencias en la búsqueda.'
+                  : 'No hay recetas que coincidan con los filtros aplicados.'}
             </Text>
           }
+        />
+
+        {/* Modal de filtros */}
+        <RecipeFilter
+          visible={showFilter}
+          onClose={() => setShowFilter(false)}
+          recipes={displayedRecipes}
+          onFilteredResults={handleFilteredResults}
+          showUserSearch={true}
         />
       </SafeAreaView>
     </LinearGradient>
@@ -211,6 +275,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  filterButtonActive: {
+    backgroundColor: '#FF6B35',
+  },
+
+  filterIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    marginHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  filterIndicatorText: {
+    fontSize: 12,
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  clearFiltersText: {
+    fontSize: 12,
+    color: '#E9A300',
+    fontWeight: 'bold',
+  },
 
   sectionTitle: {
     fontSize: 16,
@@ -235,8 +324,26 @@ const styles = StyleSheet.create({
   },
   recipeImage: { width: '100%', height: CARD_WIDTH * 0.3 },
   recipeInfo: { padding: 8 },
-  recipeTitle: { fontSize: 14, marginBottom: 4 },
-  recipeDesc: { fontSize: 12, color: '#333', lineHeight: 16 },
+  recipeTitle: { fontSize: 14, marginBottom: 4, fontWeight: 'bold' },
+  recipeDesc: { fontSize: 12, color: '#333', lineHeight: 16, marginBottom: 8 },
+  recipeMetadata: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  recipeAuthor: { fontSize: 10, color: '#666', marginBottom: 2 },
+  recipeDifficulty: { fontSize: 10, color: '#666', marginBottom: 2 },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  ratingText: {
+    fontSize: 10,
+    color: '#666',
+    marginLeft: 2,
+  },
   favoriteButton: {
     position: 'absolute',
     bottom: 8,
