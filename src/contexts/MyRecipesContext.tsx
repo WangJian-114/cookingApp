@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Alert } from 'react-native';
 import api from '../services/api';
+import { useAuth } from './AuthContext.tsx'
 
 interface Ingrediente {
   nombre: string;
@@ -204,10 +205,18 @@ export const MyRecipesProvider: React.FC<MyRecipesProviderProps> = ({ children }
     setError(null);
   };
 
-  // Cargamos recetas
+  // ! Cargar recetas automáticamente cuando el usuario esté autenticado !
+  const { userToken, loading: authLoading } = useAuth();
+
   useEffect(() => {
-    fetchRecipes();
-  }, []);
+    if (userToken && !authLoading) {
+      fetchRecipes();
+    }
+    else if (!userToken && !authLoading) {
+      setRecipes([]);
+      setError(null);
+    }
+  }, [userToken, authLoading]);
 
   const value: MyRecipesContextState = {
     recipes,
