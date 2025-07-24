@@ -18,7 +18,6 @@ import {
 import LinearGradient from 'react-native-linear-gradient';
 import { IonIcon } from '../../components/shared/IonIcon';
 import { Header } from '../../components/shared/header/Header';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../../../contexts/AuthContext';
 import api from '../../../services/api';
 
@@ -74,7 +73,6 @@ export const ProfileScreen = () => {
     } catch {
       // ignoramos errores
     }
-    await AsyncStorage.multiRemove(['ACCESS_TOKEN', 'REFRESH_TOKEN']);
     await logout();
   };
 
