@@ -19,6 +19,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { IonIcon } from '../../components/shared/IonIcon';
 import { Header } from '../../components/shared/header/Header';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../../../contexts/AuthContext';
 import api from '../../../services/api';
 
 const { width } = Dimensions.get('window');
@@ -37,6 +38,7 @@ export const ProfileScreen = () => {
   const navigation = useNavigation();
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const { logout } = useAuth();
 
   useEffect(() => {
     navigation.setOptions({
@@ -73,12 +75,7 @@ export const ProfileScreen = () => {
       // ignoramos errores
     }
     await AsyncStorage.multiRemove(['ACCESS_TOKEN', 'REFRESH_TOKEN']);
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: 'Auth' as never }],
-      })
-    );
+    await logout();
   };
 
   if (loading) {
