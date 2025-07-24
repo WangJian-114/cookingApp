@@ -69,12 +69,17 @@ export const RecipesListScreen = () => {
   }, [navigation, refreshRecipes]);
 
   useEffect(() => {
-    if (error) {
+    if (error && recipes.length === 0) {
       Alert.alert('Error', error, [
-        { text: 'OK', onPress: clearError }
+        {
+          text: 'OK',
+          onPress: () => {
+            clearError();
+          }
+        }
       ]);
     }
-  }, [error, clearError]);
+  }, [error, recipes.length, clearError]);
 
   const onRefresh = useCallback(async () => {
     await refreshRecipes();
